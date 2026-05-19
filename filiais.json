@@ -1,0 +1,922 @@
+﻿{
+    "Mottu Belo Horizonte":  {
+                                 "nome":  "Mottu Belo Horizonte",
+                                 "bq_filial":  "Mottu Belo Horizonte",
+                                 "api_codigo":  "3"
+                             },
+    "Mottu Curitiba":  {
+                           "nome":  "Mottu Curitiba",
+                           "bq_filial":  "Mottu Curitiba",
+                           "api_codigo":  "4"
+                       },
+    "Mottu Brasília":  {
+                           "nome":  "Mottu Brasília",
+                           "bq_filial":  "Mottu Brasília",
+                           "api_codigo":  "10"
+                       },
+    "Mottu Serra":  {
+                        "nome":  "Mottu Serra",
+                        "bq_filial":  "Mottu Serra",
+                        "api_codigo":  "19"
+                    },
+    "Mottu São José dos Campos":  {
+                                      "nome":  "Mottu São José dos Campos",
+                                      "bq_filial":  "Mottu São José dos Campos",
+                                      "api_codigo":  "20"
+                                  },
+    "Mottu Maceió":  {
+                         "nome":  "Mottu Maceió",
+                         "bq_filial":  "Mottu Maceió",
+                         "api_codigo":  "22"
+                     },
+    "Mottu Uberlândia":  {
+                             "nome":  "Mottu Uberlândia",
+                             "bq_filial":  "Mottu Uberlândia",
+                             "api_codigo":  "25"
+                         },
+    "Mottu Cuiabá":  {
+                         "nome":  "Mottu Cuiabá",
+                         "bq_filial":  "Mottu Cuiabá",
+                         "api_codigo":  "30"
+                     },
+    "Mottu Campo Grande":  {
+                               "nome":  "Mottu Campo Grande",
+                               "bq_filial":  "Mottu Campo Grande",
+                               "api_codigo":  "31"
+                           },
+    "Mottu Florianópolis":  {
+                                "nome":  "Mottu Florianópolis",
+                                "bq_filial":  "Mottu Florianópolis",
+                                "api_codigo":  "32"
+                            },
+    "Mottu Campina Grande":  {
+                                 "nome":  "Mottu Campina Grande",
+                                 "bq_filial":  "Mottu Campina Grande",
+                                 "api_codigo":  "38"
+                             },
+    "Mottu Caruaru":  {
+                          "nome":  "Mottu Caruaru",
+                          "bq_filial":  "Mottu Caruaru",
+                          "api_codigo":  "39"
+                      },
+    "Mottu Feira de Santana":  {
+                                   "nome":  "Mottu Feira de Santana",
+                                   "bq_filial":  "Mottu Feira de Santana",
+                                   "api_codigo":  "40"
+                               },
+    "Mottu Contagem":  {
+                           "nome":  "Mottu Contagem",
+                           "bq_filial":  "Mottu Contagem",
+                           "api_codigo":  "53"
+                       },
+    "Mottu Joinville":  {
+                            "nome":  "Mottu Joinville",
+                            "bq_filial":  "Mottu Joinville",
+                            "api_codigo":  "56"
+                        },
+    "Mottu Porto Velho":  {
+                              "nome":  "Mottu Porto Velho",
+                              "bq_filial":  "Mottu Porto Velho",
+                              "api_codigo":  "59"
+                          },
+    "Mottu Boa Vista":  {
+                            "nome":  "Mottu Boa Vista",
+                            "bq_filial":  "Mottu Boa Vista",
+                            "api_codigo":  "61"
+                        },
+    "Mottu Rio Branco":  {
+                             "nome":  "Mottu Rio Branco",
+                             "bq_filial":  "Mottu Rio Branco",
+                             "api_codigo":  "62"
+                         },
+    "Mottu São José do Rio Preto":  {
+                                        "nome":  "Mottu São José do Rio Preto",
+                                        "bq_filial":  "Mottu São José do Rio Preto",
+                                        "api_codigo":  "63"
+                                    },
+    "Mottu Macapá":  {
+                         "nome":  "Mottu Macapá",
+                         "bq_filial":  "Mottu Macapá",
+                         "api_codigo":  "66"
+                     },
+    "Mottu Vila Velha":  {
+                             "nome":  "Mottu Vila Velha",
+                             "bq_filial":  "Mottu Vila Velha",
+                             "api_codigo":  "72"
+                         },
+    "Mottu Parnamirim":  {
+                             "nome":  "Mottu Parnamirim",
+                             "bq_filial":  "Mottu Parnamirim",
+                             "api_codigo":  "118"
+                         },
+    "Mottu Camaçari":  {
+                           "nome":  "Mottu Camaçari",
+                           "bq_filial":  "Mottu Camaçari",
+                           "api_codigo":  "173"
+                       },
+    "Mottu Maracanaú":  {
+                            "nome":  "Mottu Maracanaú",
+                            "bq_filial":  "Mottu Maracanaú",
+                            "api_codigo":  "180"
+                        },
+    "Mottu Piçarreira":  {
+                             "nome":  "Mottu Piçarreira",
+                             "bq_filial":  "Mottu Piçarreira",
+                             "api_codigo":  "183"
+                         },
+    "Mottu Juazeiro":  {
+                           "nome":  "Mottu Juazeiro",
+                           "bq_filial":  "Mottu Juazeiro",
+                           "api_codigo":  "45"
+                       },
+    "Mottu Juazeiro do Norte":  {
+                                    "nome":  "Mottu Juazeiro do Norte",
+                                    "bq_filial":  "Mottu Juazeiro do Norte",
+                                    "api_codigo":  "46"
+                                },
+    "Mottu Londrina":  {
+                           "nome":  "Mottu Londrina",
+                           "bq_filial":  "Mottu Londrina",
+                           "api_codigo":  "49"
+                       },
+    "Mottu Maringá":  {
+                          "nome":  "Mottu Maringá",
+                          "bq_filial":  "Mottu Maringá",
+                          "api_codigo":  "50"
+                      },
+    "Mottu Montes Claros":  {
+                                "nome":  "Mottu Montes Claros",
+                                "bq_filial":  "Mottu Montes Claros",
+                                "api_codigo":  "57"
+                            },
+    "Mottu Anápolis":  {
+                           "nome":  "Mottu Anápolis",
+                           "bq_filial":  "Mottu Anápolis",
+                           "api_codigo":  "58"
+                       },
+    "Mottu Palmas":  {
+                         "nome":  "Mottu Palmas",
+                         "bq_filial":  "Mottu Palmas",
+                         "api_codigo":  "60"
+                     },
+    "Mottu São Carlos":  {
+                             "nome":  "Mottu São Carlos",
+                             "bq_filial":  "Mottu São Carlos",
+                             "api_codigo":  "64"
+                         },
+    "Mottu Imperatriz":  {
+                             "nome":  "Mottu Imperatriz",
+                             "bq_filial":  "Mottu Imperatriz",
+                             "api_codigo":  "65"
+                         },
+    "Mottu Mossoró":  {
+                          "nome":  "Mottu Mossoró",
+                          "bq_filial":  "Mottu Mossoró",
+                          "api_codigo":  "67"
+                      },
+    "Mottu Marabá":  {
+                         "nome":  "Mottu Marabá",
+                         "bq_filial":  "Mottu Marabá",
+                         "api_codigo":  "68"
+                     },
+    "Mottu Franca":  {
+                         "nome":  "Mottu Franca",
+                         "bq_filial":  "Mottu Franca",
+                         "api_codigo":  "75"
+                     },
+    "Mottu Uberaba":  {
+                          "nome":  "Mottu Uberaba",
+                          "bq_filial":  "Mottu Uberaba",
+                          "api_codigo":  "78"
+                      },
+    "Mottu Parauapebas":  {
+                              "nome":  "Mottu Parauapebas",
+                              "bq_filial":  "Mottu Parauapebas",
+                              "api_codigo":  "79"
+                          },
+    "Mottu Araçatuba":  {
+                            "nome":  "Mottu Araçatuba",
+                            "bq_filial":  "Mottu Araçatuba",
+                            "api_codigo":  "109"
+                        },
+    "Mottu Itajaí":  {
+                         "nome":  "Mottu Itajaí",
+                         "bq_filial":  "Mottu Itajaí",
+                         "api_codigo":  "111"
+                     },
+    "Mottu Aparecida de Goiânia":  {
+                                       "nome":  "Mottu Aparecida de Goiânia",
+                                       "bq_filial":  "Mottu Aparecida de Goiânia",
+                                       "api_codigo":  "123"
+                                   },
+    "Mottu Presidente Prudente":  {
+                                      "nome":  "Mottu Presidente Prudente",
+                                      "bq_filial":  "Mottu Presidente Prudente",
+                                      "api_codigo":  "252"
+                                  },
+    "Mottu Pindamonhangaba":  {
+                                  "nome":  "Mottu Pindamonhangaba",
+                                  "bq_filial":  "Mottu Pindamonhangaba",
+                                  "api_codigo":  "311"
+                              },
+    "Mottu Bayeux":  {
+                         "nome":  "Mottu Bayeux",
+                         "bq_filial":  "Mottu Bayeux",
+                         "api_codigo":  "384"
+                     },
+    "Mottu Messejana":  {
+                            "nome":  "Mottu Messejana",
+                            "bq_filial":  "Mottu Messejana",
+                            "api_codigo":  "402"
+                        },
+    "Mottu Icoaraci":  {
+                           "nome":  "Mottu Icoaraci",
+                           "bq_filial":  "Mottu Icoaraci",
+                           "api_codigo":  "404"
+                       },
+    "Mottu São José de Ribamar":  {
+                                      "nome":  "Mottu São José de Ribamar",
+                                      "bq_filial":  "Mottu São José de Ribamar",
+                                      "api_codigo":  "513"
+                                  },
+    "Mottu Manaus":  {
+                         "nome":  "Mottu Manaus",
+                         "bq_filial":  "Mottu Manaus",
+                         "api_codigo":  "5"
+                     },
+    "Mottu Salvador":  {
+                           "nome":  "Mottu Salvador",
+                           "bq_filial":  "Mottu Salvador",
+                           "api_codigo":  "6"
+                       },
+    "Mottu Porto Alegre":  {
+                               "nome":  "Mottu Porto Alegre",
+                               "bq_filial":  "Mottu Porto Alegre",
+                               "api_codigo":  "8"
+                           },
+    "Mottu Fortaleza":  {
+                            "nome":  "Mottu Fortaleza",
+                            "bq_filial":  "Mottu Fortaleza",
+                            "api_codigo":  "9"
+                        },
+    "Mottu Goiânia":  {
+                          "nome":  "Mottu Goiânia",
+                          "bq_filial":  "Mottu Goiânia",
+                          "api_codigo":  "15"
+                      },
+    "Mottu Recife":  {
+                         "nome":  "Mottu Recife",
+                         "bq_filial":  "Mottu Recife",
+                         "api_codigo":  "16"
+                     },
+    "Mottu Ribeirão Preto":  {
+                                 "nome":  "Mottu Ribeirão Preto",
+                                 "bq_filial":  "Mottu Ribeirão Preto",
+                                 "api_codigo":  "17"
+                             },
+    "Mottu Belém":  {
+                        "nome":  "Mottu Belém",
+                        "bq_filial":  "Mottu Belém",
+                        "api_codigo":  "18"
+                    },
+    "Mottu São Luís":  {
+                           "nome":  "Mottu São Luís",
+                           "bq_filial":  "Mottu São Luís",
+                           "api_codigo":  "21"
+                       },
+    "Mottu Teresina":  {
+                           "nome":  "Mottu Teresina",
+                           "bq_filial":  "Mottu Teresina",
+                           "api_codigo":  "26"
+                       },
+    "Mottu Natal":  {
+                        "nome":  "Mottu Natal",
+                        "bq_filial":  "Mottu Natal",
+                        "api_codigo":  "27"
+                    },
+    "Mottu João Pessoa":  {
+                              "nome":  "Mottu João Pessoa",
+                              "bq_filial":  "Mottu João Pessoa",
+                              "api_codigo":  "28"
+                          },
+    "Mottu Aracaju":  {
+                          "nome":  "Mottu Aracaju",
+                          "bq_filial":  "Mottu Aracaju",
+                          "api_codigo":  "29"
+                      },
+    "Mottu Olinda":  {
+                         "nome":  "Mottu Olinda",
+                         "bq_filial":  "Mottu Olinda",
+                         "api_codigo":  "84"
+                     },
+    "Mottu Fátima":  {
+                         "nome":  "Mottu Fátima",
+                         "bq_filial":  "Mottu Fátima",
+                         "api_codigo":  "114"
+                     },
+    "Mottu Ananindeua":  {
+                             "nome":  "Mottu Ananindeua",
+                             "bq_filial":  "Mottu Ananindeua",
+                             "api_codigo":  "122"
+                         },
+    "Mottu Campinas":  {
+                           "nome":  "Mottu Campinas",
+                           "bq_filial":  "Mottu Campinas",
+                           "api_codigo":  "7"
+                       },
+    "Mottu São Miguel":  {
+                             "nome":  "Mottu São Miguel",
+                             "bq_filial":  "Mottu São Miguel",
+                             "api_codigo":  "13"
+                         },
+    "Mottu São Bernardo":  {
+                               "nome":  "Mottu São Bernardo",
+                               "bq_filial":  "Mottu São Bernardo",
+                               "api_codigo":  "23"
+                           },
+    "Mottu Santos":  {
+                         "nome":  "Mottu Santos",
+                         "bq_filial":  "Mottu Santos",
+                         "api_codigo":  "24"
+                     },
+    "Mottu Jundiaí":  {
+                          "nome":  "Mottu Jundiaí",
+                          "bq_filial":  "Mottu Jundiaí",
+                          "api_codigo":  "33"
+                      },
+    "Mottu Sorocaba":  {
+                           "nome":  "Mottu Sorocaba",
+                           "bq_filial":  "Mottu Sorocaba",
+                           "api_codigo":  "34"
+                       },
+    "Mottu Taboão":  {
+                         "nome":  "Mottu Taboão",
+                         "bq_filial":  "Mottu Taboão",
+                         "api_codigo":  "35"
+                     },
+    "Mottu Limão - Zona Norte":  {
+                                     "nome":  "Mottu Limão - Zona Norte",
+                                     "bq_filial":  "Mottu Limão - Zona Norte",
+                                     "api_codigo":  "36"
+                                 },
+    "Mottu Interlagos":  {
+                             "nome":  "Mottu Interlagos",
+                             "bq_filial":  "Mottu Interlagos",
+                             "api_codigo":  "37"
+                         },
+    "Mottu Jandira":  {
+                          "nome":  "Mottu Jandira",
+                          "bq_filial":  "Mottu Jandira",
+                          "api_codigo":  "41"
+                      },
+    "Mottu Piracicaba":  {
+                             "nome":  "Mottu Piracicaba",
+                             "bq_filial":  "Mottu Piracicaba",
+                             "api_codigo":  "44"
+                         },
+    "Mottu Praia Grande":  {
+                               "nome":  "Mottu Praia Grande",
+                               "bq_filial":  "Mottu Praia Grande",
+                               "api_codigo":  "82"
+                           },
+    "Mottu Guarulhos":  {
+                            "nome":  "Mottu Guarulhos",
+                            "bq_filial":  "Mottu Guarulhos",
+                            "api_codigo":  "83"
+                        },
+    "Mottu Mogi das Cruzes":  {
+                                  "nome":  "Mottu Mogi das Cruzes",
+                                  "bq_filial":  "Mottu Mogi das Cruzes",
+                                  "api_codigo":  "86"
+                              },
+    "Mottu Ipiranga":  {
+                           "nome":  "Mottu Ipiranga",
+                           "bq_filial":  "Mottu Ipiranga",
+                           "api_codigo":  "94"
+                       },
+    "Mottu Vila Leopoldina":  {
+                                  "nome":  "Mottu Vila Leopoldina",
+                                  "bq_filial":  "Mottu Vila Leopoldina",
+                                  "api_codigo":  "477"
+                              },
+    "Mottu São Mateus":  {
+                             "nome":  "Mottu São Mateus",
+                             "bq_filial":  "Mottu São Mateus",
+                             "api_codigo":  "514"
+                         },
+    "Mottu Dourados":  {
+                           "nome":  "Mottu Dourados",
+                           "bq_filial":  "Mottu Dourados",
+                           "api_codigo":  "77"
+                       },
+    "Mottu Jequié":  {
+                         "nome":  "Mottu Jequié",
+                         "bq_filial":  "Mottu Jequié",
+                         "api_codigo":  "271"
+                     },
+    "Mottu Aracati":  {
+                          "nome":  "Mottu Aracati",
+                          "bq_filial":  "Mottu Aracati",
+                          "api_codigo":  "274"
+                      },
+    "Mottu Abaetetuba":  {
+                             "nome":  "Mottu Abaetetuba",
+                             "bq_filial":  "Mottu Abaetetuba",
+                             "api_codigo":  "282"
+                         },
+    "Mottu Campos dos Goytacazes":  {
+                                        "nome":  "Mottu Campos dos Goytacazes",
+                                        "bq_filial":  "Mottu Campos dos Goytacazes",
+                                        "api_codigo":  "285"
+                                    },
+    "Mottu Patos":  {
+                        "nome":  "Mottu Patos",
+                        "bq_filial":  "Mottu Patos",
+                        "api_codigo":  "300"
+                    },
+    "Mottu Porto Seguro":  {
+                               "nome":  "Mottu Porto Seguro",
+                               "bq_filial":  "Mottu Porto Seguro",
+                               "api_codigo":  "329"
+                           },
+    "Mottu Itapipoca":  {
+                            "nome":  "Mottu Itapipoca",
+                            "bq_filial":  "Mottu Itapipoca",
+                            "api_codigo":  "357"
+                        },
+    "Mottu Caxias":  {
+                         "nome":  "Mottu Caxias",
+                         "bq_filial":  "Mottu Caxias",
+                         "api_codigo":  "366"
+                     },
+    "Mottu Volta Redonda":  {
+                                "nome":  "Mottu Volta Redonda",
+                                "bq_filial":  "Mottu Volta Redonda",
+                                "api_codigo":  "396"
+                            },
+    "Mottu Ji Paraná":  {
+                            "nome":  "Mottu Ji Paraná",
+                            "bq_filial":  "Mottu Ji Paraná",
+                            "api_codigo":  "416"
+                        },
+    "Mottu Eunápolis":  {
+                            "nome":  "Mottu Eunápolis",
+                            "bq_filial":  "Mottu Eunápolis",
+                            "api_codigo":  "417"
+                        },
+    "Mottu Avaré":  {
+                        "nome":  "Mottu Avaré",
+                        "bq_filial":  "Mottu Avaré",
+                        "api_codigo":  "454"
+                    },
+    "Mottu Santa Maria":  {
+                              "nome":  "Mottu Santa Maria",
+                              "bq_filial":  "Mottu Santa Maria",
+                              "api_codigo":  "455"
+                          },
+    "Mottu Toledo":  {
+                         "nome":  "Mottu Toledo",
+                         "bq_filial":  "Mottu Toledo",
+                         "api_codigo":  "463"
+                     },
+    "Mottu Ourinhos":  {
+                           "nome":  "Mottu Ourinhos",
+                           "bq_filial":  "Mottu Ourinhos",
+                           "api_codigo":  "475"
+                       },
+    "Mottu Madureira":  {
+                            "nome":  "Mottu Madureira",
+                            "bq_filial":  "Mottu Madureira",
+                            "api_codigo":  "476"
+                        },
+    "Mottu Cachoeiro de Itapemirim":  {
+                                          "nome":  "Mottu Cachoeiro de Itapemirim",
+                                          "bq_filial":  "Mottu Cachoeiro de Itapemirim",
+                                          "api_codigo":  "505"
+                                      },
+    "Mottu Patos de Minas":  {
+                                 "nome":  "Mottu Patos de Minas",
+                                 "bq_filial":  "Mottu Patos de Minas",
+                                 "api_codigo":  "509"
+                             },
+    "Mottu Foz do Iguaçu":  {
+                                "nome":  "Mottu Foz do Iguaçu",
+                                "bq_filial":  "Mottu Foz do Iguaçu",
+                                "api_codigo":  "511"
+                            },
+    "Mottu Poços de Caldas":  {
+                                  "nome":  "Mottu Poços de Caldas",
+                                  "bq_filial":  "Mottu Poços de Caldas",
+                                  "api_codigo":  "515"
+                              },
+    "Mottu Passo Fundo":  {
+                              "nome":  "Mottu Passo Fundo",
+                              "bq_filial":  "Mottu Passo Fundo",
+                              "api_codigo":  "522"
+                          },
+    "Mottu Botucatu":  {
+                           "nome":  "Mottu Botucatu",
+                           "bq_filial":  "Mottu Botucatu",
+                           "api_codigo":  "523"
+                       },
+    "Mottu Sinop":  {
+                        "nome":  "Mottu Sinop",
+                        "bq_filial":  "Mottu Sinop",
+                        "api_codigo":  "526"
+                    },
+    "Mottu Lages":  {
+                        "nome":  "Mottu Lages",
+                        "bq_filial":  "Mottu Lages",
+                        "api_codigo":  "527"
+                    },
+    "Mottu Itaboraí":  {
+                           "nome":  "Mottu Itaboraí",
+                           "bq_filial":  "Mottu Itaboraí",
+                           "api_codigo":  "532"
+                       },
+    "Mottu Itumbiara":  {
+                            "nome":  "Mottu Itumbiara",
+                            "bq_filial":  "Mottu Itumbiara",
+                            "api_codigo":  "537"
+                        },
+    "Mottu Chapecó":  {
+                          "nome":  "Mottu Chapecó",
+                          "bq_filial":  "Mottu Chapecó",
+                          "api_codigo":  "544"
+                      },
+    "Mottu Varginha":  {
+                           "nome":  "Mottu Varginha",
+                           "bq_filial":  "Mottu Varginha",
+                           "api_codigo":  "546"
+                       },
+    "Mottu Paranaguá":  {
+                            "nome":  "Mottu Paranaguá",
+                            "bq_filial":  "Mottu Paranaguá",
+                            "api_codigo":  "557"
+                        },
+    "Mottu Teresópolis":  {
+                              "nome":  "Mottu Teresópolis",
+                              "bq_filial":  "Mottu Teresópolis",
+                              "api_codigo":  "558"
+                          },
+    "Mottu Nova Friburgo":  {
+                                "nome":  "Mottu Nova Friburgo",
+                                "bq_filial":  "Mottu Nova Friburgo",
+                                "api_codigo":  "560"
+                            },
+    "Mottu Ipatinga":  {
+                           "nome":  "Mottu Ipatinga",
+                           "bq_filial":  "Mottu Ipatinga",
+                           "api_codigo":  "55"
+                       },
+    "Mottu Sobral":  {
+                         "nome":  "Mottu Sobral",
+                         "bq_filial":  "Mottu Sobral",
+                         "api_codigo":  "74"
+                     },
+    "Mottu Niterói":  {
+                          "nome":  "Mottu Niterói",
+                          "bq_filial":  "Mottu Niterói",
+                          "api_codigo":  "105"
+                      },
+    "Mottu Alagoinhas":  {
+                             "nome":  "Mottu Alagoinhas",
+                             "bq_filial":  "Mottu Alagoinhas",
+                             "api_codigo":  "110"
+                         },
+    "Mottu Parnaíba":  {
+                           "nome":  "Mottu Parnaíba",
+                           "bq_filial":  "Mottu Parnaíba",
+                           "api_codigo":  "115"
+                       },
+    "Mottu Pelotas":  {
+                          "nome":  "Mottu Pelotas",
+                          "bq_filial":  "Mottu Pelotas",
+                          "api_codigo":  "203"
+                      },
+    "Mottu Bragança":  {
+                           "nome":  "Mottu Bragança",
+                           "bq_filial":  "Mottu Bragança",
+                           "api_codigo":  "238"
+                       },
+    "Mottu Jacarepaguá":  {
+                              "nome":  "Mottu Jacarepaguá",
+                              "bq_filial":  "Mottu Jacarepaguá",
+                              "api_codigo":  "248"
+                          },
+    "Mottu Vitória de Santo Antão":  {
+                                         "nome":  "Mottu Vitória de Santo Antão",
+                                         "bq_filial":  "Mottu Vitória de Santo Antão",
+                                         "api_codigo":  "250"
+                                     },
+    "Mottu Linhares":  {
+                           "nome":  "Mottu Linhares",
+                           "bq_filial":  "Mottu Linhares",
+                           "api_codigo":  "258"
+                       },
+    "Mottu Barreiras":  {
+                            "nome":  "Mottu Barreiras",
+                            "bq_filial":  "Mottu Barreiras",
+                            "api_codigo":  "259"
+                        },
+    "Mottu Ipojuca":  {
+                          "nome":  "Mottu Ipojuca",
+                          "bq_filial":  "Mottu Ipojuca",
+                          "api_codigo":  "267"
+                      },
+    "Mottu Teixeira de Freitas":  {
+                                      "nome":  "Mottu Teixeira de Freitas",
+                                      "bq_filial":  "Mottu Teixeira de Freitas",
+                                      "api_codigo":  "284"
+                                  },
+    "Mottu Crato":  {
+                        "nome":  "Mottu Crato",
+                        "bq_filial":  "Mottu Crato",
+                        "api_codigo":  "295"
+                    },
+    "Mottu Ponta Grossa":  {
+                               "nome":  "Mottu Ponta Grossa",
+                               "bq_filial":  "Mottu Ponta Grossa",
+                               "api_codigo":  "319"
+                           },
+    "Mottu Blumenau":  {
+                           "nome":  "Mottu Blumenau",
+                           "bq_filial":  "Mottu Blumenau",
+                           "api_codigo":  "356"
+                       },
+    "Mottu Sete Lagoas":  {
+                              "nome":  "Mottu Sete Lagoas",
+                              "bq_filial":  "Mottu Sete Lagoas",
+                              "api_codigo":  "372"
+                          },
+    "Mottu Cascavel":  {
+                           "nome":  "Mottu Cascavel",
+                           "bq_filial":  "Mottu Cascavel",
+                           "api_codigo":  "397"
+                       },
+    "Mottu Itapetininga":  {
+                               "nome":  "Mottu Itapetininga",
+                               "bq_filial":  "Mottu Itapetininga",
+                               "api_codigo":  "449"
+                           },
+    "Mottu Lagarto":  {
+                          "nome":  "Mottu Lagarto",
+                          "bq_filial":  "Mottu Lagarto",
+                          "api_codigo":  "462"
+                      },
+    "Mottu Pouso Alegre":  {
+                               "nome":  "Mottu Pouso Alegre",
+                               "bq_filial":  "Mottu Pouso Alegre",
+                               "api_codigo":  "472"
+                           },
+    "Mottu Várzea Grande":  {
+                                "nome":  "Mottu Várzea Grande",
+                                "bq_filial":  "Mottu Várzea Grande",
+                                "api_codigo":  "473"
+                            },
+    "Mottu Colatina":  {
+                           "nome":  "Mottu Colatina",
+                           "bq_filial":  "Mottu Colatina",
+                           "api_codigo":  "474"
+                       },
+    "Mottu Campo Grande - RJ":  {
+                                    "nome":  "Mottu Campo Grande - RJ",
+                                    "bq_filial":  "Mottu Campo Grande - RJ",
+                                    "api_codigo":  "497"
+                                },
+    "Mottu Nossa Senhora do Socorro":  {
+                                           "nome":  "Mottu Nossa Senhora do Socorro",
+                                           "bq_filial":  "Mottu Nossa Senhora do Socorro",
+                                           "api_codigo":  "507"
+                                       },
+    "Mottu Americana":  {
+                            "nome":  "Mottu Americana",
+                            "bq_filial":  "Mottu Americana",
+                            "api_codigo":  "533"
+                        },
+    "Mottu Marília":  {
+                          "nome":  "Mottu Marília",
+                          "bq_filial":  "Mottu Marília",
+                          "api_codigo":  "536"
+                      },
+    "Mottu Votuporanga":  {
+                              "nome":  "Mottu Votuporanga",
+                              "bq_filial":  "Mottu Votuporanga",
+                              "api_codigo":  "542"
+                          },
+    "Mottu CDMX Colegio Militar":  {
+                                       "nome":  "Mottu CDMX Colegio Militar",
+                                       "bq_filial":  "Mottu CDMX Colegio Militar",
+                                       "api_codigo":  "11"
+                                   },
+    "Mottu Querétaro":  {
+                            "nome":  "Mottu Querétaro",
+                            "bq_filial":  "Mottu Querétaro",
+                            "api_codigo":  "42"
+                        },
+    "Mottu Monterrey Lincoln":  {
+                                    "nome":  "Mottu Monterrey Lincoln",
+                                    "bq_filial":  "Mottu Monterrey Lincoln",
+                                    "api_codigo":  "43"
+                                },
+    "Mottu Puebla":  {
+                         "nome":  "Mottu Puebla",
+                         "bq_filial":  "Mottu Puebla",
+                         "api_codigo":  "48"
+                     },
+    "Mottu CDMX Tlalpan":  {
+                               "nome":  "Mottu CDMX Tlalpan",
+                               "bq_filial":  "Mottu CDMX Tlalpan",
+                               "api_codigo":  "71"
+                           },
+    "Mottu CDMX Cien Metros":  {
+                                   "nome":  "Mottu CDMX Cien Metros",
+                                   "bq_filial":  "Mottu CDMX Cien Metros",
+                                   "api_codigo":  "85"
+                               },
+    "Mottu Monterrey La Fe":  {
+                                  "nome":  "Mottu Monterrey La Fe",
+                                  "bq_filial":  "Mottu Monterrey La Fe",
+                                  "api_codigo":  "106"
+                              },
+    "Mottu Cancún":  {
+                         "nome":  "Mottu Cancún",
+                         "bq_filial":  "Mottu Cancún",
+                         "api_codigo":  "107"
+                     },
+    "Mottu Guadalajara Centro":  {
+                                     "nome":  "Mottu Guadalajara Centro",
+                                     "bq_filial":  "Mottu Guadalajara Centro",
+                                     "api_codigo":  "113"
+                                 },
+    "Mottu Mérida":  {
+                         "nome":  "Mottu Mérida",
+                         "bq_filial":  "Mottu Mérida",
+                         "api_codigo":  "249"
+                     },
+    "Mottu Los Reyes":  {
+                            "nome":  "Mottu Los Reyes",
+                            "bq_filial":  "Mottu Los Reyes",
+                            "api_codigo":  "413"
+                        },
+    "Mottu Toluca":  {
+                         "nome":  "Mottu Toluca",
+                         "bq_filial":  "Mottu Toluca",
+                         "api_codigo":  "459"
+                     },
+    "Mottu Edomex Coacalco":  {
+                                  "nome":  "Mottu Edomex Coacalco",
+                                  "bq_filial":  "Mottu Edomex Coacalco",
+                                  "api_codigo":  "499"
+                              },
+    "Mottu Los Reyes - Armado":  {
+                                     "nome":  "Mottu Los Reyes - Armado",
+                                     "bq_filial":  "Mottu Los Reyes - Armado",
+                                     "api_codigo":  "535"
+                                 },
+    "Mottu Edomex Atizapan":  {
+                                  "nome":  "Mottu Edomex Atizapan",
+                                  "bq_filial":  "Mottu Edomex Atizapan",
+                                  "api_codigo":  "771"
+                              },
+    "Mottu CDMX Aragón":  {
+                              "nome":  "Mottu CDMX Aragón",
+                              "bq_filial":  "Mottu CDMX Aragón",
+                              "api_codigo":  "778"
+                          },
+    "Mottu Torreón":  {
+                          "nome":  "Mottu Torreón",
+                          "bq_filial":  "Mottu Torreón",
+                          "api_codigo":  "858"
+                      },
+    "Mottu Chalco":  {
+                         "nome":  "Mottu Chalco",
+                         "bq_filial":  "Mottu Chalco",
+                         "api_codigo":  "862"
+                     },
+    "Mottu Criciúma":  {
+                           "nome":  "Mottu Criciúma",
+                           "bq_filial":  "Mottu Criciúma",
+                           "api_codigo":  "51"
+                       },
+    "Mottu Arapiraca":  {
+                            "nome":  "Mottu Arapiraca",
+                            "bq_filial":  "Mottu Arapiraca",
+                            "api_codigo":  "52"
+                        },
+    "Mottu Caxias do Sul":  {
+                                "nome":  "Mottu Caxias do Sul",
+                                "bq_filial":  "Mottu Caxias do Sul",
+                                "api_codigo":  "69"
+                            },
+    "Mottu Rondonópolis":  {
+                               "nome":  "Mottu Rondonópolis",
+                               "bq_filial":  "Mottu Rondonópolis",
+                               "api_codigo":  "70"
+                           },
+    "Mottu Rio Verde":  {
+                            "nome":  "Mottu Rio Verde",
+                            "bq_filial":  "Mottu Rio Verde",
+                            "api_codigo":  "73"
+                        },
+    "Mottu Governador Valadares":  {
+                                       "nome":  "Mottu Governador Valadares",
+                                       "bq_filial":  "Mottu Governador Valadares",
+                                       "api_codigo":  "76"
+                                   },
+    "Mottu Vitória da Conquista":  {
+                                       "nome":  "Mottu Vitória da Conquista",
+                                       "bq_filial":  "Mottu Vitória da Conquista",
+                                       "api_codigo":  "80"
+                                   },
+    "Mottu Santarém":  {
+                           "nome":  "Mottu Santarém",
+                           "bq_filial":  "Mottu Santarém",
+                           "api_codigo":  "81"
+                       },
+    "Mottu Juiz de Fora":  {
+                               "nome":  "Mottu Juiz de Fora",
+                               "bq_filial":  "Mottu Juiz de Fora",
+                               "api_codigo":  "95"
+                           },
+    "Mottu Itabuna":  {
+                          "nome":  "Mottu Itabuna",
+                          "bq_filial":  "Mottu Itabuna",
+                          "api_codigo":  "116"
+                      },
+    "Mottu Divinópolis":  {
+                              "nome":  "Mottu Divinópolis",
+                              "bq_filial":  "Mottu Divinópolis",
+                              "api_codigo":  "174"
+                          },
+    "Mottu Bauru":  {
+                        "nome":  "Mottu Bauru",
+                        "bq_filial":  "Mottu Bauru",
+                        "api_codigo":  "175"
+                    },
+    "Mottu Vila Isabel":  {
+                              "nome":  "Mottu Vila Isabel",
+                              "bq_filial":  "Mottu Vila Isabel",
+                              "api_codigo":  "225"
+                          },
+    "Mottu Macaé":  {
+                        "nome":  "Mottu Macaé",
+                        "bq_filial":  "Mottu Macaé",
+                        "api_codigo":  "266"
+                    },
+    "Mottu Cabo Frio":  {
+                            "nome":  "Mottu Cabo Frio",
+                            "bq_filial":  "Mottu Cabo Frio",
+                            "api_codigo":  "283"
+                        },
+    "Mottu Petrolina":  {
+                            "nome":  "Mottu Petrolina",
+                            "bq_filial":  "Mottu Petrolina",
+                            "api_codigo":  "309"
+                        },
+    "Mottu Valparaíso":  {
+                             "nome":  "Mottu Valparaíso",
+                             "bq_filial":  "Mottu Valparaíso",
+                             "api_codigo":  "310"
+                         },
+    "Mottu Castanhal":  {
+                            "nome":  "Mottu Castanhal",
+                            "bq_filial":  "Mottu Castanhal",
+                            "api_codigo":  "365"
+                        },
+    "Mottu Vitória":  {
+                          "nome":  "Mottu Vitória",
+                          "bq_filial":  "Mottu Vitória",
+                          "api_codigo":  "405"
+                      },
+    "Mottu Caucaia":  {
+                          "nome":  "Mottu Caucaia",
+                          "bq_filial":  "Mottu Caucaia",
+                          "api_codigo":  "458"
+                      },
+    "Mottu Duque de Caxias":  {
+                                  "nome":  "Mottu Duque de Caxias",
+                                  "bq_filial":  "Mottu Duque de Caxias",
+                                  "api_codigo":  "469"
+                              },
+    "Mottu Nova Iguaçu":  {
+                              "nome":  "Mottu Nova Iguaçu",
+                              "bq_filial":  "Mottu Nova Iguaçu",
+                              "api_codigo":  "478"
+                          },
+    "Mottu Cariacica":  {
+                            "nome":  "Mottu Cariacica",
+                            "bq_filial":  "Mottu Cariacica",
+                            "api_codigo":  "489"
+                        },
+    "Mottu Lapa - Mottu-e":  {
+                                 "nome":  "Mottu Lapa - Mottu-e",
+                                 "bq_filial":  "Mottu Lapa - Mottu-e",
+                                 "api_codigo":  "547"
+                             },
+    "Mottu Jaboatão dos Guararapes":  {
+                                          "nome":  "Mottu Jaboatão dos Guararapes",
+                                          "bq_filial":  "Mottu Jaboatão dos Guararapes",
+                                          "api_codigo":  "554"
+                                      }
+}
