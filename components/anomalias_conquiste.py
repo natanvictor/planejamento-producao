@@ -71,7 +71,8 @@ def render_tabela_conquiste(df: pd.DataFrame) -> None:
 
     display = df.copy()
 
-    display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
+    if "status_execucao" not in display.columns:
+        display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
 
     # Colunas que vêm da API (não disponíveis nesta aba — exibir vazio)
     display["rampa"]   = "—"

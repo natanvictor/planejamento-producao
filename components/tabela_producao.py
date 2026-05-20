@@ -17,7 +17,6 @@ _RENAME = {
     "mecanico": "Mecânico",
     "rampa": "Rampa",
     "data_entrada": "Entrada",
-    "data_saida": "Saída",
 }
 
 _COL_ORDER = list(_RENAME.keys())
@@ -33,10 +32,12 @@ def render_tabela(df: pd.DataFrame) -> None:
         lambda s: f"{_STATUS_ICONS.get(s, '')} {s}"
     )
 
-    for col in ("data_entrada", "data_saida"):
-        if col in display.columns:
-            display[col] = pd.to_datetime(display[col], errors="coerce").dt.strftime("%H:%M")
-            display[col] = display[col].fillna("—")
+    if "data_entrada" in display.columns:
+        display["data_entrada"] = (
+            pd.to_datetime(display["data_entrada"], errors="coerce")
+            .dt.strftime("%d/%m/%Y %H:%M:%S")
+        )
+        display["data_entrada"] = display["data_entrada"].fillna("—")
 
     cols_present = [c for c in _COL_ORDER if c in display.columns]
     st.dataframe(
