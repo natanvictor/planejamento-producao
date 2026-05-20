@@ -25,7 +25,7 @@ def get_planejamento_do_dia(filial: str | None = None) -> pd.DataFrame:
             lugarId,
             ordem,
             veiculoId
-        FROM `exp_frota.ordem_de_producao_historico`
+        FROM `dm-mottu-aluguel.exp_frota.ordem_de_producao_historico`
         WHERE dia_ordem = CURRENT_DATE()
     """
 
