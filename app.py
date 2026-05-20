@@ -9,9 +9,11 @@ from streamlit_autorefresh import st_autorefresh
 from data.bigquery_client import get_planejamento_do_dia
 from data.realtime_client import get_status_em_tempo_real
 from data.conquiste_client import get_conquiste_anomalias
+from data.transferencia_client import get_transferencia_anomalias
 from components.kpi_cards import render_kpi_cards
 from components.tabela_producao import render_tabela
 from components.anomalias_conquiste import render_kpi_cards_conquiste, render_tabela_conquiste
+from components.anomalias_transferencia import render_kpi_cards_transferencia, render_tabela_transferencia
 
 st.set_page_config(
     page_title="Produção Mottu",
@@ -46,6 +48,11 @@ def _carregar_conquiste() -> pd.DataFrame:
     return get_conquiste_anomalias()
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _carregar_transferencia() -> pd.DataFrame:
+    return get_transferencia_anomalias()
+
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 filiais = _load_filiais()
 st.sidebar.title("Filtros")
@@ -55,7 +62,11 @@ api_codigo  = filial_info["api_codigo"]
 bq_filial   = filial_info.get("bq_filial", filial_selecionada)
 
 # ── Abas ───────────────────────────────────────────────────────────────────────
-tab_plan, tab_anom = st.tabs(["📋 Planejamento de Produção", "🚨 Anomalias — Conquiste"])
+tab_plan, tab_anom, tab_trans = st.tabs([
+    "📋 Planejamento de Produção",
+    "🚨 Anomalias — Conquiste",
+    "🔄 Anomalias — Transferência",
+])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ABA 1 — PLANEJAMENTO
@@ -122,3 +133,39 @@ with tab_anom:
         st.divider()
         render_tabela_conquiste(df_anom_f)
         st.caption("Fonte: BigQuery · Motos Conquiste com cliente ativo, em manutenção e > 3 dias paradas")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ABA 3 — ANOMALIAS TRANSFERÊNCIA
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_trans:
+    with st.spinner("Carregando anomalias de transferência..."):
+        try:
+            df_trans = _carregar_transferencia()
+        except Exception as e:
+            st.error(f"Erro ao carregar transferências: {e}")
+            df_trans = pd.DataFrame()
+
+    if not df_trans.empty:
+        filiais_trans  = ["Todas"] + sorted(df_trans["filial"].dropna().unique().tolist())
+        prazos         = ["Todos"] + [
+            "Passou do Prazo", "Atenção Proximo do Prazo",
+            "Dia de Transferencia", "No Prazo",
+        ]
+
+        c1, c2, _ = st.columns([2, 2, 6])
+        filial_filter_trans = c1.selectbox("Filial", filiais_trans, key="filial_trans")
+        prazo_filter        = c2.selectbox("Valida Prazo", prazos, key="prazo_trans")
+
+        df_trans_f = df_trans.copy()
+        if filial_filter_trans != "Todas":
+            df_trans_f = df_trans_f[df_trans_f["filial"] == filial_filter_trans]
+        if prazo_filter != "Todos":
+            df_trans_f = df_trans_f[df_trans_f["valida_prazo"] == prazo_filter]
+
+        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+        st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
+
+        render_kpi_cards_transferencia(df_trans_f)
+        st.divider()
+        render_tabela_transferencia(df_trans_f)
+        st.caption("Fonte: BigQuery · Motos Minha Mottu com prazo de transferência vencido")

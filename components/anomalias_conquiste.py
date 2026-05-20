@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from components.utils import get_status_execucao
 
 # ── Cores por estágio kanban ────────────────────────────────────────────────────
 _KANBAN_CSS = {
@@ -13,7 +14,8 @@ _KANBAN_CSS = {
 
 _COLS_DISPLAY = [
     "placa", "Filial", "modelo", "produto_categoria", "diasSituacao",
-    "ultimo_evento_fluxo", "kanban_coluna", "mecanico", "rampa", "Entrada", "Saída",
+    "ultimo_evento_fluxo", "kanban_coluna", "status_execucao",
+    "mecanico", "rampa", "Entrada", "Saída",
 ]
 
 _COLS_RENAME = {
@@ -24,6 +26,7 @@ _COLS_RENAME = {
     "diasSituacao":        "Dias na Situação",
     "ultimo_evento_fluxo": "Evento Manutenção",
     "kanban_coluna":       "Status",
+    "status_execucao":     "Status Execução",
     "mecanico":            "Mecânico",
     "rampa":               "Rampa",
     "Entrada":             "Entrada",
@@ -67,6 +70,8 @@ def render_tabela_conquiste(df: pd.DataFrame) -> None:
         return
 
     display = df.copy()
+
+    display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
 
     # Colunas que vêm da API (não disponíveis nesta aba — exibir vazio)
     display["rampa"]   = "—"
