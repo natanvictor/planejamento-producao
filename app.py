@@ -34,14 +34,13 @@ def _load_filiais() -> dict:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _carregar_planejamento(bq_filial: str, api_codigo: str) -> pd.DataFrame:
-    planejamento = get_planejamento_do_dia(bq_filial)
-    status_rt = get_status_em_tempo_real(api_codigo)
-    df = planejamento.merge(status_rt, on="placa", how="left")
-    df["status_atual"] = df["status_atual"].fillna("não direcionada")
-    df["mecanico"] = df["mecanico"].fillna("")
-    df["rampa"] = df["rampa"].fillna("")
-    return df
+def _carregar_planejamento_bq(bq_filial: str) -> pd.DataFrame:
+    return get_planejamento_do_dia(bq_filial)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _carregar_status_rt(api_codigo: str) -> pd.DataFrame:
+    return get_status_em_tempo_real(api_codigo)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -75,32 +74,47 @@ tab_plan, tab_anom, tab_trans = st.tabs([
 with tab_plan:
     with st.spinner("Carregando planejamento..."):
         try:
-            df_plan = _carregar_planejamento(bq_filial, api_codigo)
+            df_plan_bq = _carregar_planejamento_bq(bq_filial)
         except Exception as e:
-            st.error(f"Erro ao carregar planejamento: {e}")
-            st.stop()
+            st.error(f"Erro ao carregar planejamento (BigQuery): {e}")
+            df_plan_bq = pd.DataFrame()
 
-    prioridades = ["Todas"] + sorted(
-        df_plan["ordem_prioridade"].dropna().astype(int).unique().tolist()
-    )
+        _RT_COLS = ["placa", "mecanico", "rampa", "data_entrada", "data_saida", "status_atual"]
+        try:
+            status_rt = _carregar_status_rt(api_codigo)
+        except Exception as e:
+            st.warning(f"⚠️ API em tempo real indisponível — exibindo somente dados do planejamento. ({e})")
+            status_rt = pd.DataFrame(columns=_RT_COLS)
 
-    c1, c2, _ = st.columns([2, 2, 6])
-    status_filter    = c1.selectbox("Status", ["Todos", "não direcionada", "em andamento", "finalizada"])
-    prioridade_filter = c2.selectbox("Prioridade", prioridades)
+    if df_plan_bq.empty:
+        st.info("Sem dados de planejamento para esta filial hoje.")
+    else:
+        df_plan = df_plan_bq.merge(status_rt, on="placa", how="left")
+        df_plan["status_atual"] = df_plan["status_atual"].fillna("não direcionada")
+        df_plan["mecanico"] = df_plan["mecanico"].fillna("")
+        df_plan["rampa"] = df_plan["rampa"].fillna("")
 
-    df_plan_f = df_plan.copy()
-    if status_filter != "Todos":
-        df_plan_f = df_plan_f[df_plan_f["status_atual"] == status_filter]
-    if prioridade_filter != "Todas":
-        df_plan_f = df_plan_f[df_plan_f["ordem_prioridade"].astype("Int64") == int(prioridade_filter)]
+        prioridades = ["Todas"] + sorted(
+            df_plan["ordem_prioridade"].dropna().astype(int).unique().tolist()
+        )
 
-    agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-    st.caption(f"Filial: **{filial_selecionada}** · Atualizado às {agora} · Próxima atualização em 5 min")
+        c1, c2, _ = st.columns([2, 2, 6])
+        status_filter     = c1.selectbox("Status", ["Todos", "não direcionada", "em andamento", "finalizada"])
+        prioridade_filter = c2.selectbox("Prioridade", prioridades)
 
-    render_kpi_cards(df_plan)
-    st.divider()
-    render_tabela(df_plan_f)
-    st.caption("Planejamento: 1x/dia via BigQuery · Status: tempo real via API Mottu")
+        df_plan_f = df_plan.copy()
+        if status_filter != "Todos":
+            df_plan_f = df_plan_f[df_plan_f["status_atual"] == status_filter]
+        if prioridade_filter != "Todas":
+            df_plan_f = df_plan_f[df_plan_f["ordem_prioridade"].astype("Int64") == int(prioridade_filter)]
+
+        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+        st.caption(f"Filial: **{filial_selecionada}** · Atualizado às {agora} · Próxima atualização em 5 min")
+
+        render_kpi_cards(df_plan)
+        st.divider()
+        render_tabela(df_plan_f)
+        st.caption("Planejamento: 1x/dia via BigQuery · Status: tempo real via API Mottu")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ABA 2 — ANOMALIAS CONQUISTE

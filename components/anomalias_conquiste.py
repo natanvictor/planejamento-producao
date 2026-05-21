@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from components.utils import get_status_execucao
+from components.utils import get_status_execucao, paginar_dataframe
 
 # ── Cores por estágio kanban ────────────────────────────────────────────────────
 _KANBAN_CSS = {
@@ -15,22 +15,22 @@ _KANBAN_CSS = {
 _COLS_DISPLAY = [
     "placa", "Filial", "modelo", "produto_categoria", "diasSituacao",
     "ultimo_evento_fluxo", "kanban_coluna", "status_execucao",
-    "mecanico", "rampa", "Entrada", "Saída",
+    "mecanico", "rampa", "data_entrada_manutencao", "Saída",
 ]
 
 _COLS_RENAME = {
-    "placa":               "Placa",
-    "Filial":              "Filial",
-    "modelo":              "Modelo",
-    "produto_categoria":   "Produto Categoria",
-    "diasSituacao":        "Dias na Situação",
-    "ultimo_evento_fluxo": "Evento Manutenção",
-    "kanban_coluna":       "Status",
-    "status_execucao":     "Status Execução",
-    "mecanico":            "Mecânico",
-    "rampa":               "Rampa",
-    "Entrada":             "Entrada",
-    "Saída":               "Saída",
+    "placa":                    "Placa",
+    "Filial":                   "Filial",
+    "modelo":                   "Modelo",
+    "produto_categoria":        "Produto Categoria",
+    "diasSituacao":             "Dias na Situação",
+    "ultimo_evento_fluxo":      "Evento Manutenção",
+    "kanban_coluna":            "Status",
+    "status_execucao":          "Status Execução",
+    "mecanico":                 "Mecânico",
+    "rampa":                    "Rampa",
+    "data_entrada_manutencao":  "Entrada",
+    "Saída":                    "Saída",
 }
 
 
@@ -74,13 +74,23 @@ def render_tabela_conquiste(df: pd.DataFrame) -> None:
     if "status_execucao" not in display.columns:
         display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
 
-    # Colunas que vêm da API (não disponíveis nesta aba — exibir vazio)
-    display["rampa"]   = "—"
-    display["Entrada"] = "—"
-    display["Saída"]   = "—"
+    display["rampa"] = "—"
+    display["Saída"] = "—"
+
+    if "data_entrada_manutencao" in display.columns:
+        display["data_entrada_manutencao"] = (
+            pd.to_datetime(display["data_entrada_manutencao"], errors="coerce", utc=True)
+            .dt.tz_convert("America/Sao_Paulo")
+            .dt.strftime("%d/%m/%Y %H:%M")
+            .fillna("—")
+        )
+    else:
+        display["data_entrada_manutencao"] = "—"
 
     cols_present = [c for c in _COLS_DISPLAY if c in display.columns]
     display = display[cols_present].rename(columns=_COLS_RENAME)
+
+    display = paginar_dataframe(display, page_size=50, key="page_conquiste")
 
     styler = (
         display.style

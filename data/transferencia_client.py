@@ -27,9 +27,11 @@ ultima_manutencao AS (
   SELECT
     placa_veiculo AS placa,
     DATE(data_criacao) AS data_criacao,
+    data_criacao AS data_entrada_manutencao,
     situacao_manutencao,
     tempo_estimado_execucao,
     tipo_manutencao,
+    mecanico,
     ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_criacao DESC) AS rn
   FROM `man_operacao.manutencoes_agrupadas`
   WHERE DATE(data_finalizacao) IS NULL
@@ -78,9 +80,11 @@ SELECT
   B.prazo_fim_transferencia,
   DATE_DIFF(B.prazo_fim_transferencia, CURRENT_DATE(), DAY) AS data_ate_vencimento,
   C.data_criacao,
+  C.data_entrada_manutencao,
   C.situacao_manutencao,
   C.tempo_estimado_execucao,
   C.tipo_manutencao,
+  C.mecanico,
   D.data_criacao AS data_justificativa,
   D.justificativa,
   D.peca_faltante,

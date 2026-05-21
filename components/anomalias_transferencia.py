@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from components.utils import get_status_execucao
+from components.utils import get_status_execucao, paginar_dataframe
 
 _PRAZO_CSS = {
     "Passou do Prazo":          "background-color: #C0392B; color: white",
@@ -12,7 +12,7 @@ _PRAZO_CSS = {
 _COLS_DISPLAY = [
     "placa", "filial", "prazo_fim_transferencia", "data_ate_vencimento",
     "situacao_manutencao", "valida_prazo", "status_execucao",
-    "mecanico", "rampa", "Entrada", "Saída",
+    "mecanico", "rampa", "data_entrada_manutencao", "Saída",
 ]
 
 _COLS_RENAME = {
@@ -25,7 +25,7 @@ _COLS_RENAME = {
     "status_execucao":          "Status Execução",
     "mecanico":                 "Mecânico",
     "rampa":                    "Rampa",
-    "Entrada":                  "Entrada",
+    "data_entrada_manutencao":  "Entrada",
     "Saída":                    "Saída",
 }
 
@@ -59,14 +59,28 @@ def render_tabela_transferencia(df: pd.DataFrame) -> None:
     if "status_execucao" not in display.columns:
         display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
 
-    # Colunas que vêm da API (não disponíveis nesta aba)
-    display["mecanico"] = "—"
-    display["rampa"]    = "—"
-    display["Entrada"]  = "—"
-    display["Saída"]    = "—"
+    if "mecanico" not in display.columns:
+        display["mecanico"] = "—"
+    else:
+        display["mecanico"] = display["mecanico"].fillna("—")
+
+    display["rampa"] = "—"
+    display["Saída"] = "—"
+
+    if "data_entrada_manutencao" in display.columns:
+        display["data_entrada_manutencao"] = (
+            pd.to_datetime(display["data_entrada_manutencao"], errors="coerce", utc=True)
+            .dt.tz_convert("America/Sao_Paulo")
+            .dt.strftime("%d/%m/%Y %H:%M")
+            .fillna("—")
+        )
+    else:
+        display["data_entrada_manutencao"] = "—"
 
     cols_present = [c for c in _COLS_DISPLAY if c in display.columns]
     display = display[cols_present].rename(columns=_COLS_RENAME)
+
+    display = paginar_dataframe(display, page_size=50, key="page_transferencia")
 
     styler = (
         display.style
