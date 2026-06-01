@@ -124,52 +124,63 @@ with tab_anom:
         try:
             df_anom = _carregar_conquiste()
         except Exception as e:
-            st.error(f"Erro ao carregar anomalias: {e}")
+            st.error(f"Erro ao carregar anomalias (BigQuery): {e}")
+            with st.expander("Detalhes do erro"):
+                import traceback
+                st.code(traceback.format_exc())
             df_anom = pd.DataFrame()
 
-    if not df_anom.empty:
-        # Deriva status_execucao aqui para poder filtrar por ele
-        df_anom["status_execucao"] = df_anom["situacao_manutencao"].apply(get_status_execucao)
+    if df_anom.empty:
+        st.warning("Nenhum dado retornado pela query de anomalias Conquiste. Verifique o BigQuery ou os filtros da query.")
+    else:
+        try:
+            # Deriva status_execucao aqui para poder filtrar por ele
+            df_anom["status_execucao"] = df_anom["situacao_manutencao"].apply(get_status_execucao)
 
-        filiais_anom = ["Todas"] + sorted(df_anom["Filial"].dropna().unique().tolist())
-        cats         = ["Todas"] + sorted(df_anom["produto_categoria"].dropna().unique().tolist())
-        eventos      = ["Todos"] + sorted(df_anom["ultimo_evento_fluxo"].dropna().unique().tolist())
-        status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
-        cobranca_opts    = ["Todos", "Cobrar", "Não Cobrar"]
+            filiais_anom = ["Todas"] + sorted(df_anom["Filial"].dropna().unique().tolist())
+            cats         = ["Todas"] + sorted(df_anom["produto_categoria"].dropna().unique().tolist())
+            eventos      = ["Todos"] + sorted(df_anom["ultimo_evento_fluxo"].dropna().unique().tolist())
+            status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
+            cobranca_opts    = ["Todos", "Cobrar", "Não Cobrar"]
 
-        # Linha 1 de filtros
-        c1, c2, c3, c4 = st.columns(4)
-        filial_filter_anom  = c1.selectbox("Filial",             filiais_anom,     key="filial_anom")
-        cat_filter          = c2.selectbox("Produto Categoria",  cats,             key="cat_anom")
-        cobranca_filter     = c3.selectbox("Cobrança",           cobranca_opts,    key="cobranca_anom")
-        status_exec_filter  = c4.selectbox("Status Execução",    status_exec_opts, key="status_exec_anom")
+            # Linha 1 de filtros
+            c1, c2, c3, c4 = st.columns(4)
+            filial_filter_anom  = c1.selectbox("Filial",             filiais_anom,     key="filial_anom")
+            cat_filter          = c2.selectbox("Produto Categoria",  cats,             key="cat_anom")
+            cobranca_filter     = c3.selectbox("Cobrança",           cobranca_opts,    key="cobranca_anom")
+            status_exec_filter  = c4.selectbox("Status Execução",    status_exec_opts, key="status_exec_anom")
 
-        # Linha 2 de filtros
-        c5, c6, _ = st.columns([2, 4, 4])
-        placa_filter  = c5.text_input("Placa", key="placa_anom", placeholder="ex: ABC1234")
-        evento_filter = c6.selectbox("Evento Manutenção", eventos, key="evento_anom")
+            # Linha 2 de filtros
+            c5, c6, _ = st.columns([2, 4, 4])
+            placa_filter  = c5.text_input("Placa", key="placa_anom", placeholder="ex: ABC1234")
+            evento_filter = c6.selectbox("Evento Manutenção", eventos, key="evento_anom")
 
-        df_anom_f = df_anom.copy()
-        if filial_filter_anom != "Todas":
-            df_anom_f = df_anom_f[df_anom_f["Filial"] == filial_filter_anom]
-        if cat_filter != "Todas":
-            df_anom_f = df_anom_f[df_anom_f["produto_categoria"] == cat_filter]
-        if cobranca_filter != "Todos":
-            df_anom_f = df_anom_f[df_anom_f["cobranca"] == cobranca_filter]
-        if status_exec_filter != "Todos":
-            df_anom_f = df_anom_f[df_anom_f["status_execucao"] == status_exec_filter]
-        if placa_filter.strip():
-            df_anom_f = df_anom_f[df_anom_f["placa"].str.contains(placa_filter.strip(), case=False, na=False)]
-        if evento_filter != "Todos":
-            df_anom_f = df_anom_f[df_anom_f["ultimo_evento_fluxo"] == evento_filter]
+            df_anom_f = df_anom.copy()
+            if filial_filter_anom != "Todas":
+                df_anom_f = df_anom_f[df_anom_f["Filial"] == filial_filter_anom]
+            if cat_filter != "Todas":
+                df_anom_f = df_anom_f[df_anom_f["produto_categoria"] == cat_filter]
+            if cobranca_filter != "Todos":
+                df_anom_f = df_anom_f[df_anom_f["cobranca"] == cobranca_filter]
+            if status_exec_filter != "Todos":
+                df_anom_f = df_anom_f[df_anom_f["status_execucao"] == status_exec_filter]
+            if placa_filter.strip():
+                df_anom_f = df_anom_f[df_anom_f["placa"].str.contains(placa_filter.strip(), case=False, na=False)]
+            if evento_filter != "Todos":
+                df_anom_f = df_anom_f[df_anom_f["ultimo_evento_fluxo"] == evento_filter]
 
-        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-        st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
+            agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+            st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
 
-        render_kpi_cards_conquiste(df_anom_f)
-        st.divider()
-        render_tabela_conquiste(df_anom_f)
-        st.caption("Fonte: BigQuery · Motos Conquiste com cliente ativo, em manutenção e > 3 dias paradas")
+            render_kpi_cards_conquiste(df_anom_f)
+            st.divider()
+            render_tabela_conquiste(df_anom_f)
+            st.caption("Fonte: BigQuery · Motos Conquiste com cliente ativo, em manutenção e > 3 dias paradas")
+        except Exception as e:
+            st.error(f"Erro ao renderizar aba Conquiste: {e}")
+            with st.expander("Detalhes do erro"):
+                import traceback
+                st.code(traceback.format_exc())
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ABA 3 — ANOMALIAS TRANSFERÊNCIA

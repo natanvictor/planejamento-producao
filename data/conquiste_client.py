@@ -49,13 +49,21 @@ manutencao_aberta AS (
     manutencao_id,
     DATE(data_criacao)                                              AS data_abertura_manutencao,
     data_criacao                                                    AS data_entrada_manutencao,
-    data_finalizacao,
     situacao_manutencao,
     tipo_manutencao,
     mecanico,
     sintomas
   FROM `dm-mottu-aluguel.man_operacao.manutencoes_agrupadas`
+  WHERE data_finalizacao IS NULL
   QUALIFY ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_criacao DESC) = 1
+),
+ultima_finalizacao AS (
+  SELECT
+    placa_veiculo                                                   AS placa,
+    data_finalizacao
+  FROM `dm-mottu-aluguel.man_operacao.manutencoes_agrupadas`
+  WHERE data_finalizacao IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_finalizacao DESC) = 1
 ),
 eventos_kanban AS (
   SELECT
@@ -209,7 +217,7 @@ SELECT
   oe.data_primeiro_envio                                             AS data_orcamento_enviado,
   ma.data_abertura_manutencao,
   ma.data_entrada_manutencao,
-  ma.data_finalizacao,
+  uf.data_finalizacao,
   ma.situacao_manutencao,
   ma.tipo_manutencao,
   ma.mecanico,
@@ -240,6 +248,7 @@ SELECT
   'natan.deus@mottu.com.br'                                         AS meu_email
 FROM conquiste_historico           A
 LEFT JOIN manutencao_aberta        ma      ON A.placa  = ma.placa
+LEFT JOIN ultima_finalizacao       uf      ON A.placa  = uf.placa
 LEFT JOIN ultimo_evento_fluxo      uef     ON A.placa  = uef.placa     AND A.data_atualizacao = uef.data_ref
 LEFT JOIN flag_orcamento_enviado   oe      ON A.placa  = oe.placa      AND A.data_atualizacao = oe.data_ref
 LEFT JOIN flag_orcamento_aprovado  oa_apr  ON A.placa  = oa_apr.placa  AND A.data_atualizacao = oa_apr.data_ref

@@ -28,13 +28,22 @@ ultima_manutencao AS (
     placa_veiculo AS placa,
     DATE(data_criacao) AS data_criacao,
     data_criacao AS data_entrada_manutencao,
-    data_finalizacao,
     situacao_manutencao,
     tempo_estimado_execucao,
     tipo_manutencao,
     mecanico,
     ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_criacao DESC) AS rn
   FROM `man_operacao.manutencoes_agrupadas`
+  WHERE DATE(data_finalizacao) IS NULL
+),
+
+ultima_finalizacao AS (
+  SELECT
+    placa_veiculo AS placa,
+    data_finalizacao
+  FROM `man_operacao.manutencoes_agrupadas`
+  WHERE data_finalizacao IS NOT NULL
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_finalizacao DESC) = 1
 ),
 
 frota AS (
@@ -81,7 +90,7 @@ SELECT
   DATE_DIFF(B.prazo_fim_transferencia, CURRENT_DATE(), DAY) AS data_ate_vencimento,
   C.data_criacao,
   C.data_entrada_manutencao,
-  C.data_finalizacao,
+  UF.data_finalizacao,
   C.situacao_manutencao,
   C.tempo_estimado_execucao,
   C.tipo_manutencao,
@@ -113,6 +122,7 @@ SELECT
 FROM frota A
 INNER JOIN lista_transferencia B ON A.placa = B.placa
 LEFT JOIN ultima_manutencao C ON A.placa = C.placa AND C.rn = 1
+LEFT JOIN ultima_finalizacao UF ON A.placa = UF.placa
 LEFT JOIN justificativas D ON A.placa = D.placa AND D.rn_just = 1
 LEFT JOIN divisao_filiais E ON A.lugar_nome = E.filial AND E.rn_data = 1
 LEFT JOIN email F ON E.cm_nome = F.nome_funcionario AND F.rn_2 = 1
