@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from components.utils import get_status_execucao, paginar_dataframe
+from components.utils import get_status_execucao, paginar_dataframe, render_progress_bar
 
 # ── Cores por estágio kanban ────────────────────────────────────────────────────
 _KANBAN_CSS = {
@@ -63,6 +63,11 @@ def render_kpi_cards_conquiste(df: pd.DataFrame) -> None:
     col4.metric("⚠️ Sem Justificativa",    sem_just)
     col5.metric("⏳ Orçamento Pendente",   orc_pend)
 
+    if "status_execucao" in df.columns:
+        finalizados  = int((df["status_execucao"] == "🟢 Finalizado").sum())
+        em_andamento = int((df["status_execucao"] == "🟡 Em Andamento").sum())
+        render_progress_bar(total, em_andamento, finalizados)
+
 
 def render_tabela_conquiste(df: pd.DataFrame) -> None:
     if df.empty:
@@ -75,7 +80,16 @@ def render_tabela_conquiste(df: pd.DataFrame) -> None:
         display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
 
     display["rampa"] = "—"
-    display["Saída"] = "—"
+
+    if "data_finalizacao" in display.columns:
+        display["Saída"] = (
+            pd.to_datetime(display["data_finalizacao"], errors="coerce", utc=True)
+            .dt.tz_convert("America/Sao_Paulo")
+            .dt.strftime("%d/%m/%Y %H:%M")
+            .fillna("—")
+        )
+    else:
+        display["Saída"] = "—"
 
     if "data_entrada_manutencao" in display.columns:
         display["data_entrada_manutencao"] = (

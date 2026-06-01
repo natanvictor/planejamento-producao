@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from components.utils import render_progress_bar
 
 
 def render_kpi_cards(df: pd.DataFrame) -> None:
@@ -15,3 +16,5 @@ def render_kpi_cards(df: pd.DataFrame) -> None:
     col3.metric("Em Andamento", em_andamento)
     col4.metric("Não Direcionadas", nao_direcionadas)
     col5.metric("% Conclusão", f"{pct:.1f}%")
+
+    render_progress_bar(total, em_andamento, concluidas)

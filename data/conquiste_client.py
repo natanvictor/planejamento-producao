@@ -49,12 +49,12 @@ manutencao_aberta AS (
     manutencao_id,
     DATE(data_criacao)                                              AS data_abertura_manutencao,
     data_criacao                                                    AS data_entrada_manutencao,
+    data_finalizacao,
     situacao_manutencao,
     tipo_manutencao,
     mecanico,
     sintomas
   FROM `dm-mottu-aluguel.man_operacao.manutencoes_agrupadas`
-  WHERE data_finalizacao IS NULL
   QUALIFY ROW_NUMBER() OVER (PARTITION BY placa_veiculo ORDER BY data_criacao DESC) = 1
 ),
 eventos_kanban AS (
@@ -209,6 +209,7 @@ SELECT
   oe.data_primeiro_envio                                             AS data_orcamento_enviado,
   ma.data_abertura_manutencao,
   ma.data_entrada_manutencao,
+  ma.data_finalizacao,
   ma.situacao_manutencao,
   ma.tipo_manutencao,
   ma.mecanico,

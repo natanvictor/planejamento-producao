@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from components.utils import get_status_execucao, paginar_dataframe
+from components.utils import get_status_execucao, paginar_dataframe, render_progress_bar
 
 _PRAZO_CSS = {
     "Passou do Prazo":          "background-color: #C0392B; color: white",
@@ -48,6 +48,11 @@ def render_kpi_cards_transferencia(df: pd.DataFrame) -> None:
     col4.metric("🟠 Dia de Transferência",         dia)
     col5.metric("🟢 No Prazo",                     no_prazo)
 
+    if "status_execucao" in df.columns:
+        finalizados  = int((df["status_execucao"] == "🟢 Finalizado").sum())
+        em_andamento = int((df["status_execucao"] == "🟡 Em Andamento").sum())
+        render_progress_bar(total, em_andamento, finalizados)
+
 
 def render_tabela_transferencia(df: pd.DataFrame) -> None:
     if df.empty:
@@ -65,7 +70,16 @@ def render_tabela_transferencia(df: pd.DataFrame) -> None:
         display["mecanico"] = display["mecanico"].fillna("—")
 
     display["rampa"] = "—"
-    display["Saída"] = "—"
+
+    if "data_finalizacao" in display.columns:
+        display["Saída"] = (
+            pd.to_datetime(display["data_finalizacao"], errors="coerce", utc=True)
+            .dt.tz_convert("America/Sao_Paulo")
+            .dt.strftime("%d/%m/%Y %H:%M")
+            .fillna("—")
+        )
+    else:
+        display["Saída"] = "—"
 
     if "data_entrada_manutencao" in display.columns:
         display["data_entrada_manutencao"] = (
