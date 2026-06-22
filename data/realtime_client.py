@@ -78,7 +78,7 @@ def _get_mecanicos(token: str, branch_code: str) -> list[dict]:
 
     position_ids = _get_mechanic_position_ids(token)
     if not position_ids:
-        print("[RT] AVISO: nenhum position_id encontrado — verifique nomes em _MECHANIC_POSITIONS")
+        print("[RT] AVISO: nenhum position_id encontrado -- verifique nomes em _MECHANIC_POSITIONS")
 
     url = f"{_BASE_EMPLOYEE}employees/GetSimplified?BranchId={branch_guid}"
     for pid in position_ids:
@@ -92,7 +92,7 @@ def _get_mecanicos(token: str, branch_code: str) -> list[dict]:
         for e in resp.json()["result"]
         if not e.get("isFired", False)
     ]
-    print(f"[RT] mecânicos ativos encontrados: {len(mecanicos)}")
+    print(f"[RT] mecanicos ativos encontrados: {len(mecanicos)}")
     if mecanicos:
         print(f"[RT] amostra: {mecanicos[:3]}")
     return mecanicos
@@ -163,7 +163,7 @@ def _get_eventos(token: str, maint_id: str) -> dict:
         if sid == 4:
             data_saida = ts
 
-    print(f"[RT:eventos] → entrada={data_entrada} saída={data_saida} rampa={rampa}")
+    print(f"[RT:eventos] -> entrada={data_entrada} saida={data_saida} rampa={rampa}")
 
     return {
         "rampa": rampa or "",
