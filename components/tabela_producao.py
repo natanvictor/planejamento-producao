@@ -1,5 +1,9 @@
+import logging
+
 import streamlit as st
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 _STATUS_ICONS = {
     "finalizada": "🟢",
@@ -34,6 +38,7 @@ def _fmt_ts(val) -> str:
             ts = ts.tz_convert("America/Sao_Paulo")
         return ts.strftime("%d/%m/%Y %H:%M")
     except Exception:
+        logger.warning("Falha ao formatar timestamp: %r", val, exc_info=True)
         return "—"
 
 
