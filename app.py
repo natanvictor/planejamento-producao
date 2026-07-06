@@ -1,4 +1,5 @@
 import json
+import logging
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -15,6 +16,8 @@ from components.tabela_producao import render_tabela
 from components.anomalias_conquiste import render_kpi_cards_conquiste, render_tabela_conquiste
 from components.anomalias_transferencia import render_kpi_cards_transferencia, render_tabela_transferencia
 from components.utils import get_status_execucao
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title="Produção Mottu",
@@ -75,15 +78,17 @@ with tab_plan:
     with st.spinner("Carregando planejamento..."):
         try:
             df_plan_bq = _carregar_planejamento_bq(bq_filial)
-        except Exception as e:
-            st.error(f"Erro ao carregar planejamento (BigQuery): {e}")
+        except Exception:
+            logger.exception("Erro ao carregar planejamento (BigQuery)")
+            st.error("Erro ao carregar planejamento (BigQuery). Tente novamente ou contate o suporte.")
             df_plan_bq = pd.DataFrame()
 
         _RT_COLS = ["placa", "mecanico", "rampa", "data_entrada", "data_saida", "status_atual"]
         try:
             status_rt = _carregar_status_rt(api_codigo)
-        except Exception as e:
-            st.warning(f"⚠️ API em tempo real indisponível — exibindo somente dados do planejamento. ({e})")
+        except Exception:
+            logger.exception("API em tempo real indisponível")
+            st.warning("⚠️ API em tempo real indisponível — exibindo somente dados do planejamento.")
             status_rt = pd.DataFrame(columns=_RT_COLS)
 
     if df_plan_bq.empty:
@@ -123,11 +128,9 @@ with tab_anom:
     with st.spinner("Carregando anomalias Conquiste..."):
         try:
             df_anom = _carregar_conquiste()
-        except Exception as e:
-            st.error(f"Erro ao carregar anomalias (BigQuery): {e}")
-            with st.expander("Detalhes do erro"):
-                import traceback
-                st.code(traceback.format_exc())
+        except Exception:
+            logger.exception("Erro ao carregar anomalias Conquiste (BigQuery)")
+            st.error("Erro ao carregar anomalias (BigQuery). Tente novamente ou contate o suporte.")
             df_anom = pd.DataFrame()
 
     if df_anom.empty:
@@ -165,7 +168,7 @@ with tab_anom:
             if status_exec_filter != "Todos":
                 df_anom_f = df_anom_f[df_anom_f["status_execucao"] == status_exec_filter]
             if placa_filter.strip():
-                df_anom_f = df_anom_f[df_anom_f["placa"].str.contains(placa_filter.strip(), case=False, na=False)]
+                df_anom_f = df_anom_f[df_anom_f["placa"].str.contains(placa_filter.strip(), case=False, na=False, regex=False)]
             if evento_filter != "Todos":
                 df_anom_f = df_anom_f[df_anom_f["ultimo_evento_fluxo"] == evento_filter]
 
@@ -176,11 +179,9 @@ with tab_anom:
             st.divider()
             render_tabela_conquiste(df_anom_f)
             st.caption("Fonte: BigQuery · Motos Conquiste com cliente ativo, em manutenção e > 3 dias paradas")
-        except Exception as e:
-            st.error(f"Erro ao renderizar aba Conquiste: {e}")
-            with st.expander("Detalhes do erro"):
-                import traceback
-                st.code(traceback.format_exc())
+        except Exception:
+            logger.exception("Erro ao renderizar aba Conquiste")
+            st.error("Erro ao renderizar a aba Conquiste. Tente novamente ou contate o suporte.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ABA 3 — ANOMALIAS TRANSFERÊNCIA
@@ -189,8 +190,9 @@ with tab_trans:
     with st.spinner("Carregando anomalias de transferência..."):
         try:
             df_trans = _carregar_transferencia()
-        except Exception as e:
-            st.error(f"Erro ao carregar transferências: {e}")
+        except Exception:
+            logger.exception("Erro ao carregar transferências (BigQuery)")
+            st.error("Erro ao carregar transferências. Tente novamente ou contate o suporte.")
             df_trans = pd.DataFrame()
 
     if not df_trans.empty:
