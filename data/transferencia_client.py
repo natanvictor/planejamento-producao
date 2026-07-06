@@ -1,6 +1,10 @@
+import logging
+
 import streamlit as st
 import pandas as pd
 from google.cloud import bigquery
+
+logger = logging.getLogger(__name__)
 
 
 def _get_client() -> bigquery.Client:
@@ -133,4 +137,8 @@ ORDER BY data_ate_vencimento DESC
 
 def get_transferencia_anomalias() -> pd.DataFrame:
     client = _get_client()
-    return client.query(_QUERY).to_dataframe()
+    try:
+        return client.query(_QUERY).to_dataframe()
+    except Exception:
+        logger.exception("Falha na query BigQuery de anomalias Transfer\u00eancia")
+        raise

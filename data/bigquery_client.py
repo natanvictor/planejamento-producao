@@ -1,6 +1,10 @@
+import logging
+
 import streamlit as st
 import pandas as pd
 from google.cloud import bigquery
+
+logger = logging.getLogger(__name__)
 
 
 def _get_client() -> bigquery.Client:
@@ -48,5 +52,9 @@ def get_planejamento_do_dia(filial: str | None = None) -> pd.DataFrame:
 
     query += " ORDER BY o.ordem_prioridade ASC NULLS LAST"
 
-    df = client.query(query, job_config=job_config).to_dataframe()
+    try:
+        df = client.query(query, job_config=job_config).to_dataframe()
+    except Exception:
+        logger.exception("Falha na query BigQuery de planejamento (filial=%s)", filial)
+        raise
     return df

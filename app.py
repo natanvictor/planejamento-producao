@@ -1,8 +1,13 @@
 import json
+import logging
+import traceback
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
 from streamlit_autorefresh import st_autorefresh
 
@@ -29,8 +34,21 @@ _TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 @st.cache_resource
 def _load_filiais() -> dict:
-    with open("filiais.json", encoding="utf-8-sig") as f:
-        return json.load(f)
+    try:
+        with open("filiais.json", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        logger.exception("Arquivo filiais.json n\u00e3o encontrado")
+        st.error("Arquivo `filiais.json` n\u00e3o encontrado. Verifique se ele existe na raiz do projeto.")
+        st.stop()
+    except json.JSONDecodeError:
+        logger.exception("Arquivo filiais.json cont\u00e9m JSON inv\u00e1lido")
+        st.error("Arquivo `filiais.json` cont\u00e9m JSON inv\u00e1lido.")
+        st.stop()
+    if not isinstance(data, dict) or not data:
+        st.error("Arquivo `filiais.json` est\u00e1 vazio ou em formato inesperado.")
+        st.stop()
+    return data
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -126,7 +144,6 @@ with tab_anom:
         except Exception as e:
             st.error(f"Erro ao carregar anomalias (BigQuery): {e}")
             with st.expander("Detalhes do erro"):
-                import traceback
                 st.code(traceback.format_exc())
             df_anom = pd.DataFrame()
 
@@ -179,7 +196,6 @@ with tab_anom:
         except Exception as e:
             st.error(f"Erro ao renderizar aba Conquiste: {e}")
             with st.expander("Detalhes do erro"):
-                import traceback
                 st.code(traceback.format_exc())
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -191,36 +207,45 @@ with tab_trans:
             df_trans = _carregar_transferencia()
         except Exception as e:
             st.error(f"Erro ao carregar transferências: {e}")
+            with st.expander("Detalhes do erro"):
+                st.code(traceback.format_exc())
             df_trans = pd.DataFrame()
 
-    if not df_trans.empty:
-        # Deriva status_execucao para poder filtrar
-        df_trans["status_execucao"] = df_trans["situacao_manutencao"].apply(get_status_execucao)
+    if df_trans.empty:
+        st.warning("Nenhum dado retornado pela query de anomalias Transferência. Verifique o BigQuery ou os filtros da query.")
+    else:
+        try:
+            # Deriva status_execucao para poder filtrar
+            df_trans["status_execucao"] = df_trans["situacao_manutencao"].apply(get_status_execucao)
 
-        filiais_trans    = ["Todas"] + sorted(df_trans["filial"].dropna().unique().tolist())
-        prazos           = ["Todos"] + [
-            "Passou do Prazo", "Atenção Proximo do Prazo",
-            "Dia de Transferencia", "No Prazo",
-        ]
-        status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
+            filiais_trans    = ["Todas"] + sorted(df_trans["filial"].dropna().unique().tolist())
+            prazos           = ["Todos"] + [
+                "Passou do Prazo", "Atenção Proximo do Prazo",
+                "Dia de Transferencia", "No Prazo",
+            ]
+            status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
 
-        c1, c2, c3, _ = st.columns([2, 2, 2, 4])
-        filial_filter_trans = c1.selectbox("Filial",          filiais_trans,    key="filial_trans")
-        prazo_filter        = c2.selectbox("Valida Prazo",    prazos,           key="prazo_trans")
-        status_exec_trans   = c3.selectbox("Status Execução", status_exec_opts, key="status_exec_trans")
+            c1, c2, c3, _ = st.columns([2, 2, 2, 4])
+            filial_filter_trans = c1.selectbox("Filial",          filiais_trans,    key="filial_trans")
+            prazo_filter        = c2.selectbox("Valida Prazo",    prazos,           key="prazo_trans")
+            status_exec_trans   = c3.selectbox("Status Execução", status_exec_opts, key="status_exec_trans")
 
-        df_trans_f = df_trans.copy()
-        if filial_filter_trans != "Todas":
-            df_trans_f = df_trans_f[df_trans_f["filial"] == filial_filter_trans]
-        if prazo_filter != "Todos":
-            df_trans_f = df_trans_f[df_trans_f["valida_prazo"] == prazo_filter]
-        if status_exec_trans != "Todos":
-            df_trans_f = df_trans_f[df_trans_f["status_execucao"] == status_exec_trans]
+            df_trans_f = df_trans.copy()
+            if filial_filter_trans != "Todas":
+                df_trans_f = df_trans_f[df_trans_f["filial"] == filial_filter_trans]
+            if prazo_filter != "Todos":
+                df_trans_f = df_trans_f[df_trans_f["valida_prazo"] == prazo_filter]
+            if status_exec_trans != "Todos":
+                df_trans_f = df_trans_f[df_trans_f["status_execucao"] == status_exec_trans]
 
-        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-        st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
+            agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+            st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
 
-        render_kpi_cards_transferencia(df_trans_f)
-        st.divider()
-        render_tabela_transferencia(df_trans_f)
-        st.caption("Fonte: BigQuery · Motos Minha Mottu com prazo de transferência vencido")
+            render_kpi_cards_transferencia(df_trans_f)
+            st.divider()
+            render_tabela_transferencia(df_trans_f)
+            st.caption("Fonte: BigQuery · Motos Minha Mottu com prazo de transferência vencido")
+        except Exception as e:
+            st.error(f"Erro ao renderizar aba Transferência: {e}")
+            with st.expander("Detalhes do erro"):
+                st.code(traceback.format_exc())

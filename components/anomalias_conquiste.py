@@ -1,6 +1,10 @@
+import logging
+
 import streamlit as st
 import pandas as pd
 from components.utils import get_status_execucao, paginar_dataframe, render_progress_bar
+
+logger = logging.getLogger(__name__)
 
 # ── Cores por estágio kanban ────────────────────────────────────────────────────
 _KANBAN_CSS = {
@@ -41,7 +45,8 @@ def _color_dias(val) -> str:
         if v > 30: return "background-color: #C0392B; color: white"
         if v > 13: return "background-color: #E67E22; color: white"
         return "background-color: #D4AC0D; color: black"
-    except Exception:
+    except (TypeError, ValueError):
+        logger.warning("Falha ao converter valor de dias para int: %r", val, exc_info=True)
         return ""
 
 
