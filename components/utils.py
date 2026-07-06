@@ -1,5 +1,9 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+_TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 _EM_ANDAMENTO = {
     "Em Execução", "Em Triagem", "Aguardando Peça", "Em Qualidade",
@@ -8,6 +12,8 @@ _EM_ANDAMENTO = {
 }
 _FINALIZADO = {"Finalizada", "Concluída", "Finalizado"}
 
+
+# ── Pagination ─────────────────────────────────────────────────────────────────
 
 def paginar_dataframe(df: pd.DataFrame, page_size: int = 50, key: str = "page") -> pd.DataFrame:
     total = len(df)
@@ -24,6 +30,8 @@ def paginar_dataframe(df: pd.DataFrame, page_size: int = 50, key: str = "page") 
     return df.iloc[start : start + page_size]
 
 
+# ── Status mapping ─────────────────────────────────────────────────────────────
+
 def get_status_execucao(situacao) -> str:
     if pd.isna(situacao) or str(situacao).strip() == "":
         return "🔴 Aguardando Manutenção"
@@ -33,6 +41,14 @@ def get_status_execucao(situacao) -> str:
         return "🟡 Em Andamento"
     return "🔴 Aguardando Manutenção"
 
+
+def ensure_status_execucao(df: pd.DataFrame) -> pd.DataFrame:
+    if "status_execucao" not in df.columns:
+        df["status_execucao"] = df["situacao_manutencao"].apply(get_status_execucao)
+    return df
+
+
+# ── Progress bar ───────────────────────────────────────────────────────────────
 
 def render_progress_bar(total: int, em_andamento: int, finalizados: int) -> None:
     if total == 0:
@@ -59,3 +75,63 @@ def render_progress_bar(total: int, em_andamento: int, finalizados: int) -> None
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_status_execucao_progress(df: pd.DataFrame) -> None:
+    total = len(df)
+    if "status_execucao" not in df.columns or total == 0:
+        return
+    finalizados = int((df["status_execucao"] == "🟢 Finalizado").sum())
+    em_andamento = int((df["status_execucao"] == "🟡 Em Andamento").sum())
+    render_progress_bar(total, em_andamento, finalizados)
+
+
+# ── Datetime formatting ───────────────────────────────────────────────────────
+
+def format_datetime_col(
+    series: pd.Series,
+    fmt: str = "%d/%m/%Y %H:%M",
+    assume_utc: bool = True,
+) -> pd.Series:
+    ts = pd.to_datetime(series, errors="coerce", utc=assume_utc)
+    if assume_utc:
+        ts = ts.dt.tz_convert("America/Sao_Paulo")
+    return ts.dt.strftime(fmt).fillna("—")
+
+
+def prepare_anomalia_dates(df: pd.DataFrame) -> pd.DataFrame:
+    if "data_finalizacao" in df.columns:
+        df["Saída"] = format_datetime_col(df["data_finalizacao"])
+    else:
+        df["Saída"] = "—"
+
+    if "data_entrada_manutencao" in df.columns:
+        df["data_entrada_manutencao"] = format_datetime_col(df["data_entrada_manutencao"])
+    else:
+        df["data_entrada_manutencao"] = "—"
+
+    return df
+
+
+# ── Timestamp caption ─────────────────────────────────────────────────────────
+
+def render_updated_caption(extra: str = "") -> None:
+    agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+    parts = [f"Atualizado às {agora}", "Próxima atualização em 5 min"]
+    if extra:
+        parts.insert(0, extra)
+    st.caption(" · ".join(parts))
+
+
+# ── DataFrame filtering ───────────────────────────────────────────────────────
+
+def apply_filters(
+    df: pd.DataFrame,
+    filters: dict[str, str],
+    all_value: str = "Todos",
+) -> pd.DataFrame:
+    result = df.copy()
+    for col, value in filters.items():
+        if value not in (all_value, "Todas"):
+            result = result[result[col] == value]
+    return result

@@ -1,15 +1,11 @@
-import streamlit as st
 import pandas as pd
 from google.cloud import bigquery
 
-
-def _get_client() -> bigquery.Client:
-    project = st.secrets.get("gcp_project_id", None)
-    return bigquery.Client(project=project)
+from data.bq_helpers import get_bq_client
 
 
 def get_planejamento_do_dia(filial: str | None = None) -> pd.DataFrame:
-    client = _get_client()
+    client = get_bq_client()
 
     query = """
         WITH ultima_manutencao AS (

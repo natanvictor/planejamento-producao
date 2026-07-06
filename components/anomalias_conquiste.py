@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
-from components.utils import get_status_execucao, paginar_dataframe, render_progress_bar
+from components.utils import (
+    ensure_status_execucao,
+    paginar_dataframe,
+    prepare_anomalia_dates,
+    render_status_execucao_progress,
+)
 
 # ── Cores por estágio kanban ────────────────────────────────────────────────────
 _KANBAN_CSS = {
@@ -63,10 +68,7 @@ def render_kpi_cards_conquiste(df: pd.DataFrame) -> None:
     col4.metric("⚠️ Sem Justificativa",    sem_just)
     col5.metric("⏳ Orçamento Pendente",   orc_pend)
 
-    if "status_execucao" in df.columns:
-        finalizados  = int((df["status_execucao"] == "🟢 Finalizado").sum())
-        em_andamento = int((df["status_execucao"] == "🟡 Em Andamento").sum())
-        render_progress_bar(total, em_andamento, finalizados)
+    render_status_execucao_progress(df)
 
 
 def render_tabela_conquiste(df: pd.DataFrame) -> None:
@@ -75,31 +77,9 @@ def render_tabela_conquiste(df: pd.DataFrame) -> None:
         return
 
     display = df.copy()
-
-    if "status_execucao" not in display.columns:
-        display["status_execucao"] = display["situacao_manutencao"].apply(get_status_execucao)
-
+    display = ensure_status_execucao(display)
     display["rampa"] = "—"
-
-    if "data_finalizacao" in display.columns:
-        display["Saída"] = (
-            pd.to_datetime(display["data_finalizacao"], errors="coerce", utc=True)
-            .dt.tz_convert("America/Sao_Paulo")
-            .dt.strftime("%d/%m/%Y %H:%M")
-            .fillna("—")
-        )
-    else:
-        display["Saída"] = "—"
-
-    if "data_entrada_manutencao" in display.columns:
-        display["data_entrada_manutencao"] = (
-            pd.to_datetime(display["data_entrada_manutencao"], errors="coerce", utc=True)
-            .dt.tz_convert("America/Sao_Paulo")
-            .dt.strftime("%d/%m/%Y %H:%M")
-            .fillna("—")
-        )
-    else:
-        display["data_entrada_manutencao"] = "—"
+    display = prepare_anomalia_dates(display)
 
     cols_present = [c for c in _COLS_DISPLAY if c in display.columns]
     display = display[cols_present].rename(columns=_COLS_RENAME)

@@ -1,11 +1,6 @@
-import streamlit as st
 import pandas as pd
-from google.cloud import bigquery
 
-
-def _get_client() -> bigquery.Client:
-    project = st.secrets.get("gcp_project_id", None)
-    return bigquery.Client(project=project)
+from data.bq_helpers import get_bq_client
 
 
 _QUERY = """
@@ -132,5 +127,5 @@ ORDER BY data_ate_vencimento DESC
 
 
 def get_transferencia_anomalias() -> pd.DataFrame:
-    client = _get_client()
+    client = get_bq_client()
     return client.query(_QUERY).to_dataframe()
