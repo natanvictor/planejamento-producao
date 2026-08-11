@@ -1,226 +1,98 @@
-import json
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
-from streamlit_autorefresh import st_autorefresh
+from data import plano_queries as q
+from data.realtime_manutencao import enriquecer
+from components.aba_tabela import render_aba
 
-from data.bigquery_client import get_planejamento_do_dia
-from data.realtime_client import get_status_em_tempo_real
-from data.conquiste_client import get_conquiste_anomalias
-from data.transferencia_client import get_transferencia_anomalias
-from components.kpi_cards import render_kpi_cards
-from components.tabela_producao import render_tabela
-from components.anomalias_conquiste import render_kpi_cards_conquiste, render_tabela_conquiste
-from components.anomalias_transferencia import render_kpi_cards_transferencia, render_tabela_transferencia
-from components.utils import get_status_execucao
-
-st.set_page_config(
-    page_title="Produção Mottu",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-st_autorefresh(interval=300_000, key="producao_refresh")
-
-_TZ_BR = ZoneInfo("America/Sao_Paulo")
-
-
-@st.cache_resource
-def _load_filiais() -> dict:
-    with open("filiais.json", encoding="utf-8-sig") as f:
-        return json.load(f)
+st.set_page_config(page_title="Gestão do Plano de Produção e Anomalias", layout="wide")
+st.title("Gestão do Plano de Produção e Anomalias")
+st.caption("Motos: BigQuery · Estado de manutenção (situação, evento, horários): **API em tempo real**")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _carregar_planejamento_bq(bq_filial: str) -> pd.DataFrame:
-    return get_planejamento_do_dia(bq_filial)
+def _carregar_bq(aba: str) -> pd.DataFrame:
+    return {
+        "aba1": q.get_aba1_planejamento,
+        "aba2": q.get_aba2_consultor,
+        "aba3": q.get_aba3_conquiste,
+        "aba4": q.get_aba4_transferencia,
+    }[aba]()
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _carregar_status_rt(api_codigo: str) -> pd.DataFrame:
-    return get_status_em_tempo_real(api_codigo)
+def _enriquecer(ids: tuple) -> dict:
+    return enriquecer(list(ids))
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _carregar_conquiste() -> pd.DataFrame:
-    return get_conquiste_anomalias()
+def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona colunas de manutencao em tempo real a partir do veiculoId."""
+    df = df.copy()
+    ids = sorted({int(v) for v in df["veiculoId"].dropna().tolist()})
+    est = _enriquecer(tuple(ids))
+
+    def get(vid, campo):
+        if pd.isna(vid):
+            return "" if campo != "situacao_id" else None
+        return est.get(int(vid), {}).get(campo, "" if campo != "situacao_id" else None)
+
+    df["Situação da Manutenção"] = df["veiculoId"].map(lambda v: get(v, "situacao"))
+    df["_sid"] = df["veiculoId"].map(lambda v: get(v, "situacao_id"))
+    df["Evento"] = df["veiculoId"].map(lambda v: get(v, "evento"))
+    df["Entrou na Manutenção"] = df["veiculoId"].map(lambda v: get(v, "entrada"))
+    df["Finalizada"] = df["veiculoId"].map(lambda v: get(v, "finalizada"))
+    return df
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _carregar_transferencia() -> pd.DataFrame:
-    return get_transferencia_anomalias()
+def _ordenar(df: pd.DataFrame, colunas: list) -> pd.DataFrame:
+    return df[[c for c in colunas if c in df.columns]]
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
-filiais = _load_filiais()
-st.sidebar.title("Filtros")
-filial_selecionada = st.sidebar.selectbox("Filial (Planejamento)", list(filiais.keys()))
-filial_info = filiais[filial_selecionada]
-api_codigo  = filial_info["api_codigo"]
-bq_filial   = filial_info.get("bq_filial", filial_selecionada)
-
-# ── Abas ───────────────────────────────────────────────────────────────────────
-tab_plan, tab_anom, tab_trans = st.tabs([
-    "📋 Planejamento de Produção",
-    "🚨 Anomalias — Conquiste",
-    "🔄 Anomalias — Transferência",
+tab1, tab2, tab3, tab4 = st.tabs([
+    "1 · Planejamento de Produção",
+    "2 · Planejamento do Consultor",
+    "3 · Anomalias de Conquiste",
+    "4 · Anomalias de Titular Fim do Plano",
 ])
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ABA 1 — PLANEJAMENTO
-# ══════════════════════════════════════════════════════════════════════════════
-with tab_plan:
-    with st.spinner("Carregando planejamento..."):
-        try:
-            df_plan_bq = _carregar_planejamento_bq(bq_filial)
-        except Exception as e:
-            st.error(f"Erro ao carregar planejamento (BigQuery): {e}")
-            df_plan_bq = pd.DataFrame()
+with tab1:
+    with st.spinner("Carregando plano + estado real-time…"):
+        df = _carregar_bq("aba1").rename(columns={
+            "placa": "Placa", "filial": "Filial", "categoria": "Categoria"})
+        df = _com_manutencao(df)
+    render_aba(_ordenar(df, [
+        "Placa", "Filial", "Categoria", "Situação da Manutenção",
+        "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
 
-        _RT_COLS = ["placa", "mecanico", "rampa", "data_entrada", "data_saida", "status_atual"]
-        try:
-            status_rt = _carregar_status_rt(api_codigo)
-        except Exception as e:
-            st.warning(f"⚠️ API em tempo real indisponível — exibindo somente dados do planejamento. ({e})")
-            status_rt = pd.DataFrame(columns=_RT_COLS)
+with tab2:
+    with st.spinner("Carregando plano do consultor + estado real-time…"):
+        df = _carregar_bq("aba2").rename(columns={
+            "placa": "Placa", "filial": "Filial", "modelo": "Modelo",
+            "categoria": "Categoria", "sla": "SLA"})
+        df = _com_manutencao(df)
+        df["Status da Triagem"] = df["_sid"].map(
+            lambda s: "Não realizado" if (pd.isna(s) or int(s) in (5, 6)) else "Triagem realizada")
+    render_aba(_ordenar(df, [
+        "Placa", "Filial", "Modelo", "Categoria", "SLA", "Status da Triagem",
+        "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba2")
 
-    if df_plan_bq.empty:
-        st.info("Sem dados de planejamento para esta filial hoje.")
-    else:
-        df_plan = df_plan_bq.merge(status_rt, on="placa", how="left")
-        df_plan["status_atual"] = df_plan["status_atual"].fillna("não direcionada")
-        df_plan["mecanico"] = df_plan["mecanico"].fillna("")
-        df_plan["rampa"] = df_plan["rampa"].fillna("")
+with tab3:
+    with st.spinner("Carregando anomalias Conquiste + estado real-time…"):
+        df = _carregar_bq("aba3").rename(columns={
+            "placa": "Placa", "filial": "Filial", "diasSituacao": "Dias na Situação",
+            "categoria": "Categoria", "justificativa": "Justificativa", "justificada": "Justificada?"})
+        df = _com_manutencao(df)
+    render_aba(_ordenar(df, [
+        "Placa", "Filial", "Dias na Situação", "Evento", "Situação da Manutenção",
+        "Entrou na Manutenção", "Finalizada", "Justificativa", "Justificada?",
+        "_sid", "veiculoId"]), key="aba3")
 
-        prioridades = ["Todas"] + sorted(
-            df_plan["ordem_prioridade"].dropna().astype(int).unique().tolist()
-        )
-
-        c1, c2, _ = st.columns([2, 2, 6])
-        status_filter     = c1.selectbox("Status", ["Todos", "não direcionada", "em andamento", "finalizada"])
-        prioridade_filter = c2.selectbox("Prioridade", prioridades)
-
-        df_plan_f = df_plan.copy()
-        if status_filter != "Todos":
-            df_plan_f = df_plan_f[df_plan_f["status_atual"] == status_filter]
-        if prioridade_filter != "Todas":
-            df_plan_f = df_plan_f[df_plan_f["ordem_prioridade"].astype("Int64") == int(prioridade_filter)]
-
-        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-        st.caption(f"Filial: **{filial_selecionada}** · Atualizado às {agora} · Próxima atualização em 5 min")
-
-        render_kpi_cards(df_plan)
-        st.divider()
-        render_tabela(df_plan_f)
-        st.caption("Planejamento: 1x/dia via BigQuery · Status: tempo real via API Mottu")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ABA 2 — ANOMALIAS CONQUISTE
-# ══════════════════════════════════════════════════════════════════════════════
-with tab_anom:
-    with st.spinner("Carregando anomalias Conquiste..."):
-        try:
-            df_anom = _carregar_conquiste()
-        except Exception as e:
-            st.error(f"Erro ao carregar anomalias (BigQuery): {e}")
-            with st.expander("Detalhes do erro"):
-                import traceback
-                st.code(traceback.format_exc())
-            df_anom = pd.DataFrame()
-
-    if df_anom.empty:
-        st.warning("Nenhum dado retornado pela query de anomalias Conquiste. Verifique o BigQuery ou os filtros da query.")
-    else:
-        try:
-            # Deriva status_execucao aqui para poder filtrar por ele
-            df_anom["status_execucao"] = df_anom["situacao_manutencao"].apply(get_status_execucao)
-
-            filiais_anom = ["Todas"] + sorted(df_anom["Filial"].dropna().unique().tolist())
-            cats         = ["Todas"] + sorted(df_anom["produto_categoria"].dropna().unique().tolist())
-            eventos      = ["Todos"] + sorted(df_anom["ultimo_evento_fluxo"].dropna().unique().tolist())
-            status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
-            cobranca_opts    = ["Todos", "Cobrar", "Não Cobrar"]
-
-            # Linha 1 de filtros
-            c1, c2, c3, c4 = st.columns(4)
-            filial_filter_anom  = c1.selectbox("Filial",             filiais_anom,     key="filial_anom")
-            cat_filter          = c2.selectbox("Produto Categoria",  cats,             key="cat_anom")
-            cobranca_filter     = c3.selectbox("Cobrança",           cobranca_opts,    key="cobranca_anom")
-            status_exec_filter  = c4.selectbox("Status Execução",    status_exec_opts, key="status_exec_anom")
-
-            # Linha 2 de filtros
-            c5, c6, _ = st.columns([2, 4, 4])
-            placa_filter  = c5.text_input("Placa", key="placa_anom", placeholder="ex: ABC1234")
-            evento_filter = c6.selectbox("Evento Manutenção", eventos, key="evento_anom")
-
-            df_anom_f = df_anom.copy()
-            if filial_filter_anom != "Todas":
-                df_anom_f = df_anom_f[df_anom_f["Filial"] == filial_filter_anom]
-            if cat_filter != "Todas":
-                df_anom_f = df_anom_f[df_anom_f["produto_categoria"] == cat_filter]
-            if cobranca_filter != "Todos":
-                df_anom_f = df_anom_f[df_anom_f["cobranca"] == cobranca_filter]
-            if status_exec_filter != "Todos":
-                df_anom_f = df_anom_f[df_anom_f["status_execucao"] == status_exec_filter]
-            if placa_filter.strip():
-                df_anom_f = df_anom_f[df_anom_f["placa"].str.contains(placa_filter.strip(), case=False, na=False)]
-            if evento_filter != "Todos":
-                df_anom_f = df_anom_f[df_anom_f["ultimo_evento_fluxo"] == evento_filter]
-
-            agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-            st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
-
-            render_kpi_cards_conquiste(df_anom_f)
-            st.divider()
-            render_tabela_conquiste(df_anom_f)
-            st.caption("Fonte: BigQuery · Motos Conquiste com cliente ativo, em manutenção e > 3 dias paradas")
-        except Exception as e:
-            st.error(f"Erro ao renderizar aba Conquiste: {e}")
-            with st.expander("Detalhes do erro"):
-                import traceback
-                st.code(traceback.format_exc())
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ABA 3 — ANOMALIAS TRANSFERÊNCIA
-# ══════════════════════════════════════════════════════════════════════════════
-with tab_trans:
-    with st.spinner("Carregando anomalias de transferência..."):
-        try:
-            df_trans = _carregar_transferencia()
-        except Exception as e:
-            st.error(f"Erro ao carregar transferências: {e}")
-            df_trans = pd.DataFrame()
-
-    if not df_trans.empty:
-        # Deriva status_execucao para poder filtrar
-        df_trans["status_execucao"] = df_trans["situacao_manutencao"].apply(get_status_execucao)
-
-        filiais_trans    = ["Todas"] + sorted(df_trans["filial"].dropna().unique().tolist())
-        prazos           = ["Todos"] + [
-            "Passou do Prazo", "Atenção Proximo do Prazo",
-            "Dia de Transferencia", "No Prazo",
-        ]
-        status_exec_opts = ["Todos", "🔴 Aguardando Manutenção", "🟡 Em Andamento", "🟢 Finalizado"]
-
-        c1, c2, c3, _ = st.columns([2, 2, 2, 4])
-        filial_filter_trans = c1.selectbox("Filial",          filiais_trans,    key="filial_trans")
-        prazo_filter        = c2.selectbox("Valida Prazo",    prazos,           key="prazo_trans")
-        status_exec_trans   = c3.selectbox("Status Execução", status_exec_opts, key="status_exec_trans")
-
-        df_trans_f = df_trans.copy()
-        if filial_filter_trans != "Todas":
-            df_trans_f = df_trans_f[df_trans_f["filial"] == filial_filter_trans]
-        if prazo_filter != "Todos":
-            df_trans_f = df_trans_f[df_trans_f["valida_prazo"] == prazo_filter]
-        if status_exec_trans != "Todos":
-            df_trans_f = df_trans_f[df_trans_f["status_execucao"] == status_exec_trans]
-
-        agora = datetime.now(_TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-        st.caption(f"Atualizado às {agora} · Próxima atualização em 5 min")
-
-        render_kpi_cards_transferencia(df_trans_f)
-        st.divider()
-        render_tabela_transferencia(df_trans_f)
-        st.caption("Fonte: BigQuery · Motos Minha Mottu com prazo de transferência vencido")
+with tab4:
+    with st.spinner("Carregando transferência fim do plano + estado real-time…"):
+        df = _carregar_bq("aba4").rename(columns={
+            "placa": "Placa", "filial": "Filial", "status_prazo": "Status do Prazo",
+            "Evento": "Evento Manutenção"})
+        df = _com_manutencao(df).rename(columns={"Evento": "Evento Manutenção"})
+    render_aba(_ordenar(df, [
+        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Status do Prazo",
+        "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba4")

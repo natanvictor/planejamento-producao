@@ -1,12 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-_STATUS_ICONS = {
-    "finalizada": "🟢",
-    "em andamento": "🟡",
-    "não direcionada": "🔴",
-}
-
 _RENAME = {
     "placa": "Placa",
     "modelo": "Modelo",
@@ -43,9 +37,7 @@ def render_tabela(df: pd.DataFrame) -> None:
         return
 
     display = df.copy()
-    display["status_col"] = display["status_atual"].map(
-        lambda s: f"{_STATUS_ICONS.get(s, '')} {s}"
-    )
+    display["status_col"] = display["status_atual"]
 
     if "data_entrada" in display.columns:
         display["data_entrada"] = (

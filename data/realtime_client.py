@@ -12,6 +12,28 @@ _SSO_URL        = "https://sso.mottu.cloud/realms/Internal/protocol/openid-conne
 
 _TZ_BR = timezone(timedelta(hours=-3))
 
+# Classificação Interna/Cliente pelo código `tipo` da manutenção (espelho do horus-main)
+_TIPOS_INTERNA = {3, 4, 6, 9, 15}
+_TIPOS_CLIENTE = {1, 2, 5, 7, 10, 11, 12, 13}
+
+
+def _classifica_tipo(tipo) -> str:
+    try:
+        t = int(tipo)
+    except (TypeError, ValueError):
+        return "Desconhecido"
+    if t in _TIPOS_INTERNA:
+        return "Interna"
+    if t in _TIPOS_CLIENTE:
+        return "Cliente"
+    return "Desconhecido"
+
+
+_RT_COLS = [
+    "placa", "mecanico", "rampa", "data_entrada", "data_saida",
+    "status_atual", "tipo", "tipo_manutencao",
+]
+
 # Cargos de mecânicos válidos (espelho exato de horus-main/api_employees.py)
 _MECHANIC_POSITIONS = {
     'Mecânico rampa geral (Mecânico Junior +)',
@@ -113,7 +135,12 @@ def _get_manutencoes_hoje(token: str, mec_code: str) -> list[dict]:
     result = []
     for m in todas:
         if datetime.fromisoformat(m["atualizacaoData"]).date().isoformat() == hoje:
-            result.append({"id": m["id"], "placa": m["placa"], "situacao": m["situacao"]})
+            result.append({
+                "id": m["id"],
+                "placa": m["placa"],
+                "situacao": m["situacao"],
+                "tipo": m.get("tipo"),
+            })
 
     if result:
         # Mostra tipos e valores de situacao para diagnosticar int vs string
@@ -185,9 +212,7 @@ def get_status_em_tempo_real(branch_code: str) -> pd.DataFrame:
 
     if not mecanicos:
         print("[RT] AVISO: lista de mecânicos vazia — retornando DataFrame vazio")
-        return pd.DataFrame(
-            columns=["placa", "mecanico", "rampa", "data_entrada", "data_saida", "status_atual"]
-        )
+        return pd.DataFrame(columns=_RT_COLS)
 
     records: dict[str, dict] = {}
     situacoes_vistas = set()
@@ -225,6 +250,8 @@ def get_status_em_tempo_real(branch_code: str) -> pd.DataFrame:
                 "data_entrada": ev.get("data_entrada"),
                 "data_saida": ev.get("data_saida"),
                 "status_atual": status,
+                "tipo": m.get("tipo"),
+                "tipo_manutencao": _classifica_tipo(m.get("tipo")),
             }
 
     print(f"[RT] situacoes vistas: {situacoes_vistas}")
@@ -235,9 +262,7 @@ def get_status_em_tempo_real(branch_code: str) -> pd.DataFrame:
 
     if not records:
         print("[RT] AVISO: nenhuma placa com situacao 2 ou 4 hoje")
-        return pd.DataFrame(
-            columns=["placa", "mecanico", "rampa", "data_entrada", "data_saida", "status_atual"]
-        )
+        return pd.DataFrame(columns=_RT_COLS)
 
     df = pd.DataFrame(list(records.values()))
     print(f"[RT] DataFrame final: {df.shape} colunas={list(df.columns)}")

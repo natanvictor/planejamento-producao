@@ -52,9 +52,9 @@ def render_progress_bar(total: int, em_andamento: int, finalizados: int) -> None
                  title="Em andamento: {em_andamento}"></div>
         </div>
         <div style="display:flex;gap:20px;font-size:0.78em;color:#888;margin-bottom:4px;">
-            <span>🟢 Finalizadas: <b>{finalizados}</b> ({pct_fin:.0f}%)</span>
-            <span>🟡 Em andamento: <b>{em_andamento}</b> ({pct_and:.0f}%)</span>
-            <span>⬜ Aguardando: <b>{nao_dir}</b> ({pct_cin:.0f}%)</span>
+            <span>Finalizadas: <b>{finalizados}</b> ({pct_fin:.0f}%)</span>
+            <span>Em andamento: <b>{em_andamento}</b> ({pct_and:.0f}%)</span>
+            <span>Aguardando: <b>{nao_dir}</b> ({pct_cin:.0f}%)</span>
         </div>
         """,
         unsafe_allow_html=True,

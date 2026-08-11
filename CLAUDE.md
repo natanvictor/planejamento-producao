@@ -1,6 +1,15 @@
-# Dashboard de Planejamento de Produção — Mottu
+# Gestão do Plano de Produção e Anomalias — Mottu
 
-Dashboard Streamlit de monitoramento operacional de manutenções. Roda com auto-refresh a cada 5 minutos.
+Dashboard Streamlit de monitoramento operacional de manutenções, em **4 abas**.
+
+## Princípio de arquitetura (LEIA PRIMEIRO)
+
+> **BigQuery define QUAIS motos; a API define o ESTADO de manutenção.**
+
+- **BigQuery** (`data/plano_queries.py`) → *quais* motos entram em cada aba + atributos **não-manutenção** (categoria, SLA, dias, prazo, justificativa) + o `veiculoId`.
+- **API Mottu em tempo real** (`data/realtime_manutencao.py`) → **todo** o estado de manutenção: situação, evento, horário que entrou, horário finalizada.
+
+Motivo: a tabela BQ `man_operacao.manutencao_eventos` é **snapshot diário** (`modo_atualizacao: completa`), fica horas defasada. O estado de manutenção **precisa** ser tempo real → só a API entrega isso. Nunca voltar a puxar situação/evento/horário do BQ.
 
 ---
 
@@ -8,140 +17,110 @@ Dashboard Streamlit de monitoramento operacional de manutenções. Roda com auto
 
 ```
 planejamento-producao/
-├── app.py                            # Ponto de entrada — abas, cache, sidebar
-├── requirements.txt                  # Dependências Python
-├── filiais.json                      # Mapeamento nome → {bq_filial, api_codigo} para 180+ filiais
-├── .streamlit/
-│   └── secrets.toml                  # Credenciais (ver seção abaixo)
+├── app.py                         # 4 abas, cache, merge BQ+API, coloração
 ├── data/
-│   ├── bigquery_client.py            # Query do planejamento diário (Aba 1)
-│   ├── realtime_client.py            # API Mottu em tempo real (Aba 1)
-│   ├── conquiste_client.py           # Query anomalias Conquiste (Aba 2)
-│   └── transferencia_client.py       # Query anomalias Transferência (Aba 3)
-└── components/
-    ├── kpi_cards.py                  # Cards KPI da Aba 1
-    ├── tabela_producao.py            # Tabela da Aba 1
-    ├── anomalias_conquiste.py        # KPIs + tabela da Aba 2
-    ├── anomalias_transferencia.py    # KPIs + tabela da Aba 3
-    └── utils.py                      # get_status_execucao() + paginar_dataframe()
+│   ├── plano_queries.py           # 4 queries BQ (quais motos + veiculoId + atributos)
+│   └── realtime_manutencao.py     # enriquecimento de manutenção via API em tempo real
+├── components/
+│   └── aba_tabela.py              # renderizador: filtros (filial+placa) + tabela colorida
+└── .streamlit/secrets.toml        # credenciais (não versionado)
 ```
 
----
+> `data/conquiste_client.py`, `data/transferencia_client.py`, `data/bigquery_client.py`,
+> `data/realtime_client.py`, `components/kpi_cards.py`, `tabela_producao.py`,
+> `anomalias_*.py`, `utils.py` são do app ANTIGO (3 abas) e **não são mais usados**.
 
-## Credenciais necessárias
-
-Arquivo `.streamlit/secrets.toml` (não versionado):
+## Credenciais (`.streamlit/secrets.toml`)
 
 ```toml
-username = "usuario@mottu.com.br"     # SSO Mottu (para API em tempo real)
+username = "usuario@mottu.com.br"     # SSO Mottu (API tempo real, password grant)
 password = "senha_sso"
-gcp_project_id = "dm-mottu-aluguel"   # Projeto BigQuery
+gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 ```
 
-As credenciais GCP são resolvidas via ADC (Application Default Credentials) quando rodando localmente. Em produção (Streamlit Cloud), usar o campo `[gcp_service_account]` no secrets.toml.
+---
+
+## Fluxo de dados (por aba)
+
+1. `_carregar_bq(aba)` (`@st.cache_data ttl=300`) → DataFrame com `placa, filial, ..., veiculoId`.
+2. `_com_manutencao(df)` → pega `veiculoId`, chama `_enriquecer(tuple(ids))` (cache 5min) e adiciona colunas `Situação da Manutenção`, `_sid`, `Evento`, `Entrou na Manutenção`, `Finalizada`.
+3. `render_aba(df, key)` → filtros na tela + tabela colorida.
+
+### API em tempo real (`realtime_manutencao.enriquecer`)
+
+- `POST /api/v3/Maintenance/info-by-vehicle-ids`  body `{"vehicleIds":[...]}` → `{vehicleId: maintenanceId}` (lote, chunk 300).
+- `GET /api/v2/Manutencao/Detalhes/Eventos/{id}` (paralelo, `ThreadPoolExecutor` 24 workers + `Session` com pool grande) → timeline.
+- Token: SSO password grant, `client_id=admin-v3-frontend-client`.
+- Derivação da timeline (`_derivar`):
+  - **situação/evento** = `situacaoDescricao` / `eventoTipoDescricao` do **último** evento.
+  - **entrada** = 1ª vez `situacaoId==2` **no dia** (só considera o dia).
+  - **finalizada** = último `situacaoId==4` **no dia**.
+  - `situacao_id` (numérico) retornado para coloração robusta.
 
 ---
 
-## Aba 1 — Planejamento de Produção
+## As 4 abas
 
-**O que faz:** Mostra o planejamento diário de manutenções da filial selecionada, enriquecido com status em tempo real da API Mottu.
+| # | Aba | Motos (BQ) | Colunas |
+|---|-----|-----------|---------|
+| 1 | **Planejamento de Produção** | `exp_frota.ordem_de_producao_historico` WHERE `dia_ordem = current_date` | Placa, Filial, Categoria¹, Situação, Entrou, Finalizada |
+| 2 | **Planejamento do Consultor** | `exp_frota.ordem_producao_consultor` WHERE `data_ref = current_date` | Placa, Filial, Modelo, Categoria, SLA², Status da Triagem³, Entrou, Finalizada |
+| 3 | **Anomalias de Conquiste** | query unificada (interna+cliente) `diasSituacao > 13`, **todas as filiais** | Placa, Filial, Dias na Situação, Evento, Situação, Entrou, Finalizada, Justificativa, Justificada? |
+| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, Status do Prazo⁴, Entrou, Finalizada |
 
-**Filtros (sidebar + inline):**
-- Filial — seletor no sidebar (180+ filiais Brasil + México)
-- Status — Todos / não direcionada / em andamento / finalizada
-- Prioridade — dinâmico conforme dados do dia
+¹ Aba 1 **não tem coluna "categoria"** na tabela → usa `origem` (Complementares, Suprir Agendamento, Conquiste, Limpeza…).
+² SLA = `sla_estourado` → "Estourado" / "No prazo".
+³ Status da Triagem: situação real-time em ("Aguardando Triagem","Em Triagem") ou sem manutenção → **Não realizado**; senão **Triagem realizada**.
+⁴ Status do Prazo: `DATE_DIFF(prazo, hoje)` → Passou do Prazo / Dia de Transferencia / Atenção Proximo do Prazo / No Prazo.
 
-**KPIs:** Total planejado, Concluídas, Em andamento, Não direcionadas, % conclusão.
+### Filtros e coloração (`components/aba_tabela.py`)
+- Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).
+- **Cores da Situação por `situacaoId`** (numérico, robusto):
+  - 🔴 **1** Aguardando Manutenção, **5** Aguardando Triagem, **6** Em Triagem
+  - 🟡 **2** Manutenção, **3** Qualidade
+  - 🟢 **4** Finalizada
+- Também colore: Status da Triagem (verde/vermelho), Justificada? (verde/vermelho), Status do Prazo.
 
-**Tabela:** Placa, Modelo, Prioridade, Necessidade, Status (🟢🟡🔴), Mecânico, Rampa, Entrada.
-
-**Fontes de dados:**
-- `dm-mottu-aluguel.exp_frota.ordem_de_producao_historico` — planejamento diário (BigQuery, `data/bigquery_client.py`)
-- API Mottu (SSO → branch-management → employee-management → maintenance-backend v2/v2.6) — status em tempo real por mecânico (`data/realtime_client.py`)
-
-**Comportamento de falha:** Se a API Mottu estiver indisponível, o dashboard exibe um banner de aviso e carrega apenas os dados do BigQuery, com todos os status como "não direcionada". As outras abas não são afetadas.
-
----
-
-## Aba 2 — Anomalias Conquiste
-
-**O que faz:** Lista motos com vínculo Conquiste, cliente ativo, em manutenção há mais de 3 dias.
-
-**Filtros:**
-- Filial, Produto Categoria, Cobrança, Status Execução, Placa (texto), Evento Manutenção
-
-**KPIs:** Total anomalias, Cobrar, Não Cobrar, Sem Justificativa, Orçamento Pendente.
-
-**Tabela (com cores):**
-- Dias na Situação — gradiente de cor (amarelo >3d → laranja >13d → vermelho >30d → vinho >60d)
-- Status (kanban) — cor por etapa do fluxo (triagem, orçamento, manutenção, qualidade, concluída)
-- Mecânico e Entrada — vindos do BigQuery (`manutencoes_agrupadas`)
-- Rampa e Saída — exibem "—" (não disponíveis no BigQuery para manutenções abertas)
-
-**Paginação:** 50 registros por página.
-
-**Lógica de cobrança:**
-- **Cobrar:** sem justificativa, ou justificativa = "Falha de conferência" / "Moto está em outra base" / "Moto não localizada"
-- **Não Cobrar:** orçamento pendente de aprovação, ou tem justificativa válida
-
-**Fonte de dados:** Query com 15+ CTEs em `data/conquiste_client.py`.
-Tabelas BigQuery: `exp_frota.lista_motos_aux_historico`, `man_operacao.manutencoes_agrupadas`, `man_operacao.manutencao_evento`, `exp_frota.justificativa_producao`, `exp_frota.divisao_filiais`, `exp_colaboradores.funcionarios_filiais`.
+> ⚠️ A API chama `situacaoId=2` de **"Manutenção"** (não "Em Manutenção") e `6` de **"Triagem"**. Por isso a cor é por **ID numérico**, não pelo texto.
 
 ---
 
-## Aba 3 — Anomalias Transferência
+## Enum de manutenção (fonte: production-order-backend + Dataform `manutencao_eventos`)
 
-**O que faz:** Lista motos "Minha Mottu" em processo de transferência com prazo vencido ou próximo a vencer.
+### `situacaoManutencao` (fase / situação — 6 estados)
+| id | descrição (BQ) | API `situacaoDescricao` |
+|----|----------------|--------------------------|
+| 1 | Aguardando Manutenção | Aguardando Manutenção |
+| 2 | Em Manutenção | **Manutenção** |
+| 3 | Qualidade | Qualidade |
+| 4 | Finalizada | Finalizada |
+| 5 | Aguardando Triagem | Aguardando Triagem |
+| 6 | Em Triagem | **Triagem** |
 
-**Filtros:**
-- Filial, Valida Prazo, Status Execução
-
-**KPIs:** Total, Passou do Prazo, Atenção Próximo do Prazo, Dia de Transferência, No Prazo.
-
-**Tabela (com cores):**
-- Valida Prazo — vermelho (vencido), laranja (hoje), amarelo (1-7 dias), verde (>7 dias)
-- Mecânico e Entrada — vindos do BigQuery (`manutencoes_agrupadas`)
-- Rampa e Saída — exibem "—"
-
-**Paginação:** 50 registros por página.
-
-**Lógica de cobrança:**
-- **COBRAR:** prazo ≤ 7 dias e sem justificativa, ou com justificativa "Falha de conferência" / "Moto não localizada"
-- **NÃO COBRAR:** demais casos
-
-**Fonte de dados:** Query com 6 CTEs em `data/transferencia_client.py`.
-Tabelas BigQuery: `flt_regulatorio.minha_mottu_transferencia`, `exp_frota.frota_atual`, `man_operacao.manutencoes_agrupadas`, `exp_frota.justificativa_producao`, `exp_frota.divisao_filiais`, `exp_colaboradores.funcionarios_filiais`.
+### `manutencaoEventoTipoId` (eventos / transições — principais)
+0 Criação · 1 Iniciada Triagem · 2 Finalizada Triagem · 3 Iniciada Manutenção · 4 Enviou para Qualidade · 5 Aprovada Qualidade · 7 Reprovada Qualidade · 8 Retornada para fila · 13 Alterar mecânico · 15 Encerrar manutenção · 16 Cancelar manutenção · 18 Manutenção reaberta · 24/25 Iniciada/Finalizada Triagem N2 · 27 Retornar envio qualidade · 32/33/35 Orçamento Enviado/Aprovado/Reprovado · 36-40 Bloqueios. (Fonte real-time = `eventoTipoDescricao` da API.)
 
 ---
 
-## Arquitetura de cache
+## Cache
 
-| Função | TTL | Nota |
-|--------|-----|------|
-| `_load_filiais()` | `@st.cache_resource` (permanente) | Arquivo local, não muda |
-| `_carregar_planejamento_bq()` | 5 min | Por filial selecionada |
-| `_carregar_status_rt()` | 5 min | Por código de filial (API) |
-| `_carregar_conquiste()` | 5 min | Sem parâmetro — todas as filiais |
-| `_carregar_transferencia()` | 5 min | Sem parâmetro — todas as filiais |
+| Função | TTL |
+|--------|-----|
+| `_carregar_bq(aba)` | 5 min (por aba) |
+| `_enriquecer(ids)` | 5 min (por tupla de veiculoIds) |
 
----
+Trocar filtro **não** re-chama a API (opera sobre o cache). Só o 1º load de cada janela de 5 min é lento.
 
-## Como rodar localmente
+## Rodar localmente
 
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+gcloud auth application-default login
+streamlit run app.py --server.port 8501
 ```
 
-Autenticação GCP local: `gcloud auth application-default login`
-
----
-
-## Melhorias pendentes
-
-- **Rampa e Saída nas anomalias:** não disponíveis via BigQuery. Para popular, seria necessário chamar `GET /api/v2/Manutencao/Detalhes/Eventos/{id}` para cada `manutencao_id` — potencialmente lento (1 chamada por registro). Avaliar se vale implementar com `ThreadPoolExecutor`.
-- **Exportação CSV/Excel:** nenhum botão de download nas tabelas.
-- **Busca por texto em múltiplas colunas:** filtro de placa existe só na aba Conquiste.
-- **Filtro multi-filial:** sidebar permite apenas uma filial por vez para o Planejamento.
-- **Logs de debug:** `realtime_client.py` usa `print()` em vez de `logging` estruturado.
-- **Sem ações diretas:** interface é somente leitura; não permite atualizar status, adicionar notas, etc.
+## Caveats / pendências
+- **1º load ~30-40s**: abas 1 e 2 enriquecem ~1200 e ~940 motos via API (1 chamada de lote + N `Eventos`). Mitigado por cache + spinner.
+- `st.tabs` executa as 4 abas a cada rerun → as 4 enriquecem no 1º load (cacheado depois).
+- Entrada/finalização "só do dia": manutenção iniciada em dia anterior aparece com "—" nesses campos (por design).
+- Custo BQ: cada aba escaneia tabelas de plano (pequenas); o peso de manutenção migrou para a API.
