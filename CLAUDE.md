@@ -78,7 +78,8 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 
 ### Filtros, cartões e coloração (`components/aba_tabela.py`)
 - Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).
-- **Cartões (KPIs) no topo**, `st.metric`, refletem o **filtro atual**: **Motos (placas)** = `Placa.nunique()`; **Finalizadas** = `_sid == 4`; **Iniciou manutenção** = `Entrou na Manutenção` preenchido (≠ vazio). Valem para as 4 abas.
+- **Cartões (KPIs) no topo**, `st.metric`, refletem o **filtro atual**: **Motos (placas)** = `Placa.nunique()`; **Finalizadas** = `_sid == 4`; **Iniciou manutenção** = `Entrou na Manutenção` preenchido (≠ vazio).
+  - **Aba 2 (Consultor)** substitui "Finalizadas" por **Triagem finalizada** (`Status da Triagem == "Triagem realizada"`) e adiciona **% Triagem finalizada** (triagem finalizada / total de placas). Detecção pela presença da coluna `Status da Triagem`.
 - **Cores da Situação por `situacaoId`** (numérico, robusto):
   - 🔴 **1** Aguardando Manutenção, **5** Aguardando Triagem, **6** Em Triagem
   - 🟡 **2** Manutenção, **3** Qualidade

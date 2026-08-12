@@ -39,13 +39,24 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
 
     # cartoes (KPIs) — refletem o filtro atual
     total = int(d["Placa"].nunique()) if "Placa" in d.columns else len(d)
-    finalizadas = int((sid == 4).sum())
     entrou = d["Entrou na Manutenção"] if "Entrou na Manutenção" in d.columns else pd.Series(dtype=object)
     iniciou = int(entrou.replace("", pd.NA).notna().sum())
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Motos (placas)", total)
-    k2.metric("Finalizadas", finalizadas)
-    k3.metric("Iniciou manutenção", iniciou)
+
+    if "Status da Triagem" in d.columns:
+        # aba do Consultor: "finalizada" = TRIAGEM finalizada (nao manutencao)
+        triagem_fin = int((d["Status da Triagem"] == "Triagem realizada").sum())
+        pct = f"{triagem_fin / total * 100:.0f}%" if total else "—"
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Motos (placas)", total)
+        k2.metric("Triagem finalizada", triagem_fin)
+        k3.metric("% Triagem finalizada", pct)
+        k4.metric("Iniciou manutenção", iniciou)
+    else:
+        finalizadas = int((sid == 4).sum())
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Motos (placas)", total)
+        k2.metric("Finalizadas", finalizadas)
+        k3.metric("Iniciou manutenção", iniciou)
 
     st.caption(f"**{len(d)}** registros")
     disp = d.drop(columns=[c for c in ("_sid", "veiculoId") if c in d.columns])
