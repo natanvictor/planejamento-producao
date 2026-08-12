@@ -40,8 +40,8 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
     sid = d["_sid"] if "_sid" in d.columns else pd.Series(dtype="float64")
     disp = d.drop(columns=[c for c in ("_sid", "veiculoId") if c in d.columns])
 
-    # horarios / dias vazios -> travessao
-    for col in ("Entrou na Manutenção", "Finalizada", "Dias na Situação"):
+    # horarios vazios -> travessao
+    for col in ("Entrou na Manutenção", "Finalizada"):
         if col in disp.columns:
             disp[col] = disp[col].replace("", "—").fillna("—")
 

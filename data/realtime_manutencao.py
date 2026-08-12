@@ -9,7 +9,7 @@ horario que entrou, horario finalizada) vem da API em tempo real:
 """
 import requests
 import streamlit as st
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 
@@ -83,43 +83,27 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
     if not ev:
         return {}
     ultimo = ev[-1]
-    sid_atual = ultimo.get("situacaoId")
     entrada = None      # primeira vez que iniciou manutencao (situacaoId==2) NO DIA
     finalizada = None   # ultima finalizacao (situacaoId==4) NO DIA
     rampa = None
-    inicio_sit = None   # inicio do bloco continuo da situacao ATUAL (para "dias na situacao")
     for e in ev:
         if e.get("deviceName"):
             rampa = e["deviceName"]
         ts = e.get("criacaoData")
         if not ts:
             continue
-        # dias na situacao atual: guarda o 1o evento do ultimo bloco continuo == situacao atual
-        if e.get("situacaoId") == sid_atual:
-            if inicio_sit is None:
-                inicio_sit = ts
-        else:
-            inicio_sit = None
         no_dia = ts[:10] == hoje
         sid = e.get("situacaoId")
         if no_dia and sid == 2 and entrada is None:
             entrada = ts
         if no_dia and sid == 4:
             finalizada = ts
-    dias_situacao = ""
-    if inicio_sit:
-        try:
-            d0 = datetime.fromisoformat(inicio_sit[:19]).date()
-            dias_situacao = (date.fromisoformat(hoje) - d0).days
-        except ValueError:
-            dias_situacao = ""
     return {
         "situacao": ultimo.get("situacaoDescricao") or "",
-        "situacao_id": sid_atual,
+        "situacao_id": ultimo.get("situacaoId"),
         "evento": ultimo.get("eventoTipoDescricao") or "",
         "entrada": _fmt(entrada),
         "finalizada": _fmt(finalizada),
-        "dias_situacao": dias_situacao,
         "rampa": rampa or "",
     }
 

@@ -7,7 +7,7 @@ Dashboard Streamlit de monitoramento operacional de manutenções, em **4 abas**
 > **BigQuery define QUAIS motos; a API define o ESTADO de manutenção.**
 
 - **BigQuery** (`data/plano_queries.py`) → *quais* motos entram em cada aba + atributos **não-manutenção** (categoria, SLA, dias, prazo, justificativa) + o `veiculoId` + a **placa**.
-- **API Mottu em tempo real** (`data/realtime_manutencao.py`) → **todo** o estado de manutenção: situação, evento, horário que entrou, horário finalizada, dias na situação.
+- **API Mottu em tempo real** (`data/realtime_manutencao.py`) → **todo** o estado de manutenção: situação, evento, horário que entrou, horário finalizada.
 
 Motivo: a tabela BQ `man_operacao.manutencao_eventos` é **snapshot diário** (`modo_atualizacao: completa`), fica horas defasada. O estado de manutenção **precisa** ser tempo real → só a API entrega isso. Nunca voltar a puxar situação/evento/horário do BQ.
 
@@ -45,7 +45,7 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 ## Fluxo de dados (por aba)
 
 1. `_carregar_bq(aba)` (`@st.cache_data ttl=300`) → DataFrame com `placa, filial, ..., veiculoId`.
-2. `_com_manutencao(df)` → monta `{veiculoId: placa}`, chama `_enriquecer(tuple(sorted(vp.items())))` (cache 5min) e adiciona colunas `Situação da Manutenção`, `_sid`, `Evento`, `Entrou na Manutenção`, `Finalizada`, `_dias_situacao`.
+2. `_com_manutencao(df)` → monta `{veiculoId: placa}`, chama `_enriquecer(tuple(sorted(vp.items())))` (cache 5min) e adiciona colunas `Situação da Manutenção`, `_sid`, `Evento`, `Entrou na Manutenção`, `Finalizada`.
 3. `render_aba(df, key)` → filtros na tela + tabela colorida.
 
 ### API em tempo real (`realtime_manutencao.enriquecer`)
@@ -57,7 +57,6 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
   - **situação/evento** = `situacaoDescricao` / `eventoTipoDescricao` do **último** evento.
   - **entrada** = 1ª vez `situacaoId==2` **no dia** (só considera o dia).
   - **finalizada** = último `situacaoId==4` **no dia**.
-  - **dias_situacao** = dias desde o início do **bloco contínuo** da situação atual (transição para o `situacaoId` corrente até hoje). Usado na coluna "Dias na Situação" da Aba 4.
   - `situacao_id` (numérico) retornado para coloração robusta.
 
 ---
@@ -69,13 +68,13 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 | 1 | **Planejamento de Produção** | `exp_frota.ordem_de_producao_historico` WHERE `dia_ordem = current_date` | Placa, Filial, Categoria¹, Situação, Entrou, Finalizada |
 | 2 | **Planejamento do Consultor** | `exp_frota.ordem_producao_consultor` WHERE `data_ref = current_date` | Placa, Filial, Modelo, Categoria, SLA², Status da Triagem³, Entrou, Finalizada |
 | 3 | **Anomalias de Conquiste** | query unificada (interna+cliente) `diasSituacao > 13`, **todas as filiais** | Placa, Filial, Dias na Situação, Evento, Situação, Entrou, Finalizada, Justificativa, Justificada? |
-| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, **Dias na Situação**⁵, Status do Prazo⁴, Entrou, Finalizada |
+| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, **Data de Vencimento**⁵, Status do Prazo⁴, Entrou, Finalizada |
 
 ¹ Aba 1 **não tem coluna "categoria"** na tabela → usa `origem` (Complementares, Suprir Agendamento, Conquiste, Limpeza…).
 ² SLA = `sla_estourado` → "Estourado" / "No prazo".
 ³ Status da Triagem: situação real-time em ("Aguardando Triagem","Em Triagem") ou sem manutenção → **Não realizado**; senão **Triagem realizada**.
 ⁴ Status do Prazo: `DATE_DIFF(prazo, hoje)` → Passou do Prazo / Dia de Transferencia / Atenção Proximo do Prazo / No Prazo.
-⁵ Dias na Situação: `dias_situacao` da API (dias no bloco contínuo da situação atual). Vazio → "—".
+⁵ Data de Vencimento: `prazo_fim_transferencia` (data-limite da transferência), formatada `dd/mm/aaaa`. Vazio → "—".
 
 ### Filtros e coloração (`components/aba_tabela.py`)
 - Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).

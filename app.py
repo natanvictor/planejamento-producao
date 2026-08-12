@@ -46,7 +46,6 @@ def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
     df["Evento"] = df["veiculoId"].map(lambda v: get(v, "evento"))
     df["Entrou na Manutenção"] = df["veiculoId"].map(lambda v: get(v, "entrada"))
     df["Finalizada"] = df["veiculoId"].map(lambda v: get(v, "finalizada"))
-    df["_dias_situacao"] = df["veiculoId"].map(lambda v: get(v, "dias_situacao"))
     return df
 
 
@@ -98,8 +97,9 @@ with tab4:
         df = _carregar_bq("aba4").rename(columns={
             "placa": "Placa", "filial": "Filial", "status_prazo": "Status do Prazo",
             "Evento": "Evento Manutenção"})
-        df = _com_manutencao(df).rename(columns={
-            "Evento": "Evento Manutenção", "_dias_situacao": "Dias na Situação"})
+        _venc = pd.to_datetime(df["prazo_fim_transferencia"], errors="coerce")
+        df["Data de Vencimento"] = _venc.dt.strftime("%d/%m/%Y").fillna("—")
+        df = _com_manutencao(df).rename(columns={"Evento": "Evento Manutenção"})
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Dias na Situação",
+        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Data de Vencimento",
         "Status do Prazo", "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba4")
