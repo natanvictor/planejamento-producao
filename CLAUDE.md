@@ -76,8 +76,9 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 ⁴ Status do Prazo: `DATE_DIFF(prazo, hoje)` → Passou do Prazo / Dia de Transferencia / Atenção Proximo do Prazo / No Prazo.
 ⁵ Data de Vencimento: `prazo_fim_transferencia` (data-limite da transferência), formatada `dd/mm/aaaa`. Vazio → "—".
 
-### Filtros e coloração (`components/aba_tabela.py`)
+### Filtros, cartões e coloração (`components/aba_tabela.py`)
 - Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).
+- **Cartões (KPIs) no topo**, `st.metric`, refletem o **filtro atual**: **Motos (placas)** = `Placa.nunique()`; **Finalizadas** = `_sid == 4`; **Iniciou manutenção** = `Entrou na Manutenção` preenchido (≠ vazio). Valem para as 4 abas.
 - **Cores da Situação por `situacaoId`** (numérico, robusto):
   - 🔴 **1** Aguardando Manutenção, **5** Aguardando Triagem, **6** Em Triagem
   - 🟡 **2** Manutenção, **3** Qualidade

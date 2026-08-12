@@ -35,9 +35,19 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
     if sel_p:
         d = d[d["Placa"].isin(sel_p)]
 
-    st.caption(f"**{len(d)}** registros")
-
     sid = d["_sid"] if "_sid" in d.columns else pd.Series(dtype="float64")
+
+    # cartoes (KPIs) — refletem o filtro atual
+    total = int(d["Placa"].nunique()) if "Placa" in d.columns else len(d)
+    finalizadas = int((sid == 4).sum())
+    entrou = d["Entrou na Manutenção"] if "Entrou na Manutenção" in d.columns else pd.Series(dtype=object)
+    iniciou = int(entrou.replace("", pd.NA).notna().sum())
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Motos (placas)", total)
+    k2.metric("Finalizadas", finalizadas)
+    k3.metric("Iniciou manutenção", iniciou)
+
+    st.caption(f"**{len(d)}** registros")
     disp = d.drop(columns=[c for c in ("_sid", "veiculoId") if c in d.columns])
 
     # horarios vazios -> travessao
