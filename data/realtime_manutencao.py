@@ -9,7 +9,7 @@ horario que entrou, horario finalizada) vem da API em tempo real:
 """
 import requests
 import streamlit as st
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 
@@ -83,27 +83,43 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
     if not ev:
         return {}
     ultimo = ev[-1]
+    sid_atual = ultimo.get("situacaoId")
     entrada = None      # primeira vez que iniciou manutencao (situacaoId==2) NO DIA
     finalizada = None   # ultima finalizacao (situacaoId==4) NO DIA
     rampa = None
+    inicio_sit = None   # inicio do bloco continuo da situacao ATUAL (para "dias na situacao")
     for e in ev:
         if e.get("deviceName"):
             rampa = e["deviceName"]
         ts = e.get("criacaoData")
         if not ts:
             continue
+        # dias na situacao atual: guarda o 1o evento do ultimo bloco continuo == situacao atual
+        if e.get("situacaoId") == sid_atual:
+            if inicio_sit is None:
+                inicio_sit = ts
+        else:
+            inicio_sit = None
         no_dia = ts[:10] == hoje
         sid = e.get("situacaoId")
         if no_dia and sid == 2 and entrada is None:
             entrada = ts
         if no_dia and sid == 4:
             finalizada = ts
+    dias_situacao = ""
+    if inicio_sit:
+        try:
+            d0 = datetime.fromisoformat(inicio_sit[:19]).date()
+            dias_situacao = (date.fromisoformat(hoje) - d0).days
+        except ValueError:
+            dias_situacao = ""
     return {
         "situacao": ultimo.get("situacaoDescricao") or "",
-        "situacao_id": ultimo.get("situacaoId"),
+        "situacao_id": sid_atual,
         "evento": ultimo.get("eventoTipoDescricao") or "",
         "entrada": _fmt(entrada),
         "finalizada": _fmt(finalizada),
+        "dias_situacao": dias_situacao,
         "rampa": rampa or "",
     }
 
@@ -121,17 +137,43 @@ def _eventos(sess: requests.Session, token: str, mid: int, hoje: str) -> dict:
         return {}
 
 
-def enriquecer(vehicle_ids: list[int]) -> dict[int, dict]:
-    """Retorna {vehicleId: {situacao, evento, entrada, finalizada, rampa}} em tempo real."""
-    vehicle_ids = sorted({int(v) for v in vehicle_ids if v is not None})
-    if not vehicle_ids:
+def _ultimo_mid_por_placa(placas: tuple) -> dict:
+    """Ultima manutencao (inclui FINALIZADA) por placa, via BQ. So o ID -> o estado
+    ainda vem da API ao vivo. import lazy para nao acoplar este modulo ao BQ."""
+    if not placas:
         return {}
+    from data import plano_queries
+    return plano_queries.get_ultimo_mid_por_placa(placas)
+
+
+def enriquecer(vid_placa: dict) -> dict[int, dict]:
+    """Retorna {vehicleId: {situacao, evento, entrada, finalizada, dias_situacao, rampa}}.
+
+    info-by-vehicle-ids so devolve a manutencao ABERTA. Motos finalizadas voltam
+    com maintenanceId=null e ficariam vazias -> para essas, busca o id da ultima
+    manutencao no BQ (por placa) e enriquece pelo MESMO endpoint de eventos ao vivo.
+    """
+    vid_placa = {int(v): p for v, p in vid_placa.items() if v is not None}
+    if not vid_placa:
+        return {}
+    vehicle_ids = sorted(vid_placa)
 
     sess = _session()
     token = _get_token()
     hoje = datetime.now(_TZ_BR).date().isoformat()
 
     vid_to_mid = _info_by_vehicle_ids(sess, token, vehicle_ids)
+
+    # fallback: veiculos sem manutencao aberta -> ultima manutencao (inclui finalizada)
+    sem_aberta = [v for v in vehicle_ids if v not in vid_to_mid]
+    if sem_aberta:
+        placas = tuple(sorted({vid_placa[v] for v in sem_aberta if vid_placa.get(v)}))
+        placa_mid = _ultimo_mid_por_placa(placas)
+        for v in sem_aberta:
+            mid = placa_mid.get(vid_placa.get(v))
+            if mid:
+                vid_to_mid[v] = int(mid)
+
     if not vid_to_mid:
         return {}
 

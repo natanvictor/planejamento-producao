@@ -175,3 +175,26 @@ ORDER BY t.prazo_fim_transferencia
 
 def get_aba4_transferencia() -> pd.DataFrame:
     return _run(_Q_ABA4)
+
+
+# =====================================================================
+# Fallback de manutencao FINALIZADA (info-by-vehicle-ids so devolve aberta)
+# =====================================================================
+_Q_ULT_MID = """
+SELECT placa, manutencaoId
+FROM `dm-mottu-aluguel.man_operacao.manutencao_eventos`
+WHERE placa IN UNNEST(@placas)
+QUALIFY ROW_NUMBER() OVER (PARTITION BY placa ORDER BY data_evento DESC) = 1
+"""
+
+
+def get_ultimo_mid_por_placa(placas: tuple) -> dict:
+    """{placa: manutencaoId} da ultima manutencao (inclui finalizada) por placa.
+    Fornece so o ID; o estado continua vindo da API ao vivo."""
+    if not placas:
+        return {}
+    job_config = bigquery.QueryJobConfig(query_parameters=[
+        bigquery.ArrayQueryParameter("placas", "STRING", list(placas))])
+    df = _get_client().query(_Q_ULT_MID, job_config=job_config).to_dataframe()
+    return {r.placa: int(r.manutencaoId)
+            for r in df.itertuples() if pd.notna(r.manutencaoId)}

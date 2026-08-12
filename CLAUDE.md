@@ -6,10 +6,12 @@ Dashboard Streamlit de monitoramento operacional de manutenções, em **4 abas**
 
 > **BigQuery define QUAIS motos; a API define o ESTADO de manutenção.**
 
-- **BigQuery** (`data/plano_queries.py`) → *quais* motos entram em cada aba + atributos **não-manutenção** (categoria, SLA, dias, prazo, justificativa) + o `veiculoId`.
-- **API Mottu em tempo real** (`data/realtime_manutencao.py`) → **todo** o estado de manutenção: situação, evento, horário que entrou, horário finalizada.
+- **BigQuery** (`data/plano_queries.py`) → *quais* motos entram em cada aba + atributos **não-manutenção** (categoria, SLA, dias, prazo, justificativa) + o `veiculoId` + a **placa**.
+- **API Mottu em tempo real** (`data/realtime_manutencao.py`) → **todo** o estado de manutenção: situação, evento, horário que entrou, horário finalizada, dias na situação.
 
 Motivo: a tabela BQ `man_operacao.manutencao_eventos` é **snapshot diário** (`modo_atualizacao: completa`), fica horas defasada. O estado de manutenção **precisa** ser tempo real → só a API entrega isso. Nunca voltar a puxar situação/evento/horário do BQ.
+
+> **Exceção (fallback de finalizadas):** o endpoint `info-by-vehicle-ids` só retorna a manutenção **ABERTA** do veículo (motos finalizadas voltam com `maintenanceId: null`). Sem tratamento, uma moto finalizada some do enriquecimento e aparece com Situação/Evento/horários **vazios** — nunca ficava verde "Finalizada". Fix: para os veículos sem manutenção aberta, buscamos apenas o **id da última manutenção** (inclui finalizada) no BQ `man_operacao.manutencao_eventos` por placa (`plano_queries.get_ultimo_mid_por_placa`) e enriquecemos pelo **mesmo endpoint de eventos ao vivo**. O BQ só entrega o ponteiro (id); o estado continua vindo da API. Por isso `enriquecer` recebe `{veiculoId: placa}`.
 
 ---
 
@@ -19,8 +21,8 @@ Motivo: a tabela BQ `man_operacao.manutencao_eventos` é **snapshot diário** (`
 planejamento-producao/
 ├── app.py                         # 4 abas, cache, merge BQ+API, coloração
 ├── data/
-│   ├── plano_queries.py           # 4 queries BQ (quais motos + veiculoId + atributos)
-│   └── realtime_manutencao.py     # enriquecimento de manutenção via API em tempo real
+│   ├── plano_queries.py           # 4 queries BQ (quais motos + veiculoId + placa) + get_ultimo_mid_por_placa (fallback finalizadas)
+│   └── realtime_manutencao.py     # enriquecimento de manutenção via API em tempo real (+ fallback BQ p/ finalizadas)
 ├── components/
 │   └── aba_tabela.py              # renderizador: filtros (filial+placa) + tabela colorida
 └── .streamlit/secrets.toml        # credenciais (não versionado)
@@ -43,7 +45,7 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 ## Fluxo de dados (por aba)
 
 1. `_carregar_bq(aba)` (`@st.cache_data ttl=300`) → DataFrame com `placa, filial, ..., veiculoId`.
-2. `_com_manutencao(df)` → pega `veiculoId`, chama `_enriquecer(tuple(ids))` (cache 5min) e adiciona colunas `Situação da Manutenção`, `_sid`, `Evento`, `Entrou na Manutenção`, `Finalizada`.
+2. `_com_manutencao(df)` → monta `{veiculoId: placa}`, chama `_enriquecer(tuple(sorted(vp.items())))` (cache 5min) e adiciona colunas `Situação da Manutenção`, `_sid`, `Evento`, `Entrou na Manutenção`, `Finalizada`, `_dias_situacao`.
 3. `render_aba(df, key)` → filtros na tela + tabela colorida.
 
 ### API em tempo real (`realtime_manutencao.enriquecer`)
@@ -55,6 +57,7 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
   - **situação/evento** = `situacaoDescricao` / `eventoTipoDescricao` do **último** evento.
   - **entrada** = 1ª vez `situacaoId==2` **no dia** (só considera o dia).
   - **finalizada** = último `situacaoId==4` **no dia**.
+  - **dias_situacao** = dias desde o início do **bloco contínuo** da situação atual (transição para o `situacaoId` corrente até hoje). Usado na coluna "Dias na Situação" da Aba 4.
   - `situacao_id` (numérico) retornado para coloração robusta.
 
 ---
@@ -66,12 +69,13 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 | 1 | **Planejamento de Produção** | `exp_frota.ordem_de_producao_historico` WHERE `dia_ordem = current_date` | Placa, Filial, Categoria¹, Situação, Entrou, Finalizada |
 | 2 | **Planejamento do Consultor** | `exp_frota.ordem_producao_consultor` WHERE `data_ref = current_date` | Placa, Filial, Modelo, Categoria, SLA², Status da Triagem³, Entrou, Finalizada |
 | 3 | **Anomalias de Conquiste** | query unificada (interna+cliente) `diasSituacao > 13`, **todas as filiais** | Placa, Filial, Dias na Situação, Evento, Situação, Entrou, Finalizada, Justificativa, Justificada? |
-| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, Status do Prazo⁴, Entrou, Finalizada |
+| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, **Dias na Situação**⁵, Status do Prazo⁴, Entrou, Finalizada |
 
 ¹ Aba 1 **não tem coluna "categoria"** na tabela → usa `origem` (Complementares, Suprir Agendamento, Conquiste, Limpeza…).
 ² SLA = `sla_estourado` → "Estourado" / "No prazo".
 ³ Status da Triagem: situação real-time em ("Aguardando Triagem","Em Triagem") ou sem manutenção → **Não realizado**; senão **Triagem realizada**.
 ⁴ Status do Prazo: `DATE_DIFF(prazo, hoje)` → Passou do Prazo / Dia de Transferencia / Atenção Proximo do Prazo / No Prazo.
+⁵ Dias na Situação: `dias_situacao` da API (dias no bloco contínuo da situação atual). Vazio → "—".
 
 ### Filtros e coloração (`components/aba_tabela.py`)
 - Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).
@@ -107,7 +111,7 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 | Função | TTL |
 |--------|-----|
 | `_carregar_bq(aba)` | 5 min (por aba) |
-| `_enriquecer(ids)` | 5 min (por tupla de veiculoIds) |
+| `_enriquecer(vid_placa_items)` | 5 min (por tupla de `(veiculoId, placa)`) |
 
 Trocar filtro **não** re-chama a API (opera sobre o cache). Só o 1º load de cada janela de 5 min é lento.
 

@@ -21,15 +21,20 @@ def _carregar_bq(aba: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _enriquecer(ids: tuple) -> dict:
-    return enriquecer(list(ids))
+def _enriquecer(vid_placa_items: tuple) -> dict:
+    return enriquecer(dict(vid_placa_items))
 
 
 def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
-    """Adiciona colunas de manutencao em tempo real a partir do veiculoId."""
+    """Adiciona colunas de manutencao em tempo real a partir do veiculoId.
+
+    Passa veiculoId->placa: a placa e usada como fallback para buscar a ultima
+    manutencao (inclui finalizada) das motos sem manutencao aberta.
+    """
     df = df.copy()
-    ids = sorted({int(v) for v in df["veiculoId"].dropna().tolist()})
-    est = _enriquecer(tuple(ids))
+    vp = {int(r.veiculoId): r.Placa
+          for r in df[["veiculoId", "Placa"]].dropna(subset=["veiculoId"]).itertuples()}
+    est = _enriquecer(tuple(sorted(vp.items())))
 
     def get(vid, campo):
         if pd.isna(vid):
@@ -41,6 +46,7 @@ def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
     df["Evento"] = df["veiculoId"].map(lambda v: get(v, "evento"))
     df["Entrou na Manutenção"] = df["veiculoId"].map(lambda v: get(v, "entrada"))
     df["Finalizada"] = df["veiculoId"].map(lambda v: get(v, "finalizada"))
+    df["_dias_situacao"] = df["veiculoId"].map(lambda v: get(v, "dias_situacao"))
     return df
 
 
@@ -92,7 +98,8 @@ with tab4:
         df = _carregar_bq("aba4").rename(columns={
             "placa": "Placa", "filial": "Filial", "status_prazo": "Status do Prazo",
             "Evento": "Evento Manutenção"})
-        df = _com_manutencao(df).rename(columns={"Evento": "Evento Manutenção"})
+        df = _com_manutencao(df).rename(columns={
+            "Evento": "Evento Manutenção", "_dias_situacao": "Dias na Situação"})
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Status do Prazo",
-        "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba4")
+        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Dias na Situação",
+        "Status do Prazo", "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba4")
