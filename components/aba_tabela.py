@@ -20,26 +20,50 @@ def _bg(cor: str) -> str:
 
 
 def render_aba(df: pd.DataFrame, key: str) -> None:
-    """Filtros (filial + placa, multiselect com busca) na tela + tabela colorida."""
-    c1, c2 = st.columns(2)
+    """Filtros (filial + placa + situacao, multiselect com busca) na tela + tabela colorida.
+    Nas abas com coluna 'Justificativa', um bloco de checkboxes escolhe quais manter."""
+    c1, c2, c3 = st.columns(3)
     with c1:
         filiais = sorted(df["Filial"].dropna().unique().tolist())
         sel_f = st.multiselect("Filial", filiais, key=f"{key}_f", placeholder="Todas as filiais")
     with c2:
         placas = sorted(df["Placa"].dropna().unique().tolist())
         sel_p = st.multiselect("Placa", placas, key=f"{key}_p", placeholder="Todas as placas")
+    with c3:
+        if "Situação da Manutenção" in df.columns:
+            sits = sorted(s for s in df["Situação da Manutenção"].dropna().unique().tolist() if s)
+            sel_s = st.multiselect("Situação da Manutenção", sits, key=f"{key}_s",
+                                    placeholder="Todas as situações")
+        else:
+            sel_s = []
 
     d = df
     if sel_f:
         d = d[d["Filial"].isin(sel_f)]
     if sel_p:
         d = d[d["Placa"].isin(sel_p)]
+    if sel_s:
+        d = d[d["Situação da Manutenção"].isin(sel_s)]
+
+    # filtro de justificativa (checkbox por justificativa — marcada = mantem)
+    if "Justificativa" in df.columns:
+        justs = sorted(df["Justificativa"].dropna().unique().tolist())
+        with st.expander("Justificativas — marque as que quer manter", expanded=False):
+            cols = st.columns(3)
+            manter = []
+            for i, jv in enumerate(justs):
+                with cols[i % 3]:
+                    if st.checkbox(str(jv), value=True, key=f"{key}_just_{i}"):
+                        manter.append(jv)
+        d = d[d["Justificativa"].isin(manter)]
 
     sid = d["_sid"] if "_sid" in d.columns else pd.Series(dtype="float64")
 
     # cartoes (KPIs) — refletem o filtro atual
     total = int(d["Placa"].nunique()) if "Placa" in d.columns else len(d)
-    entrou = d["Entrou na Manutenção"] if "Entrou na Manutenção" in d.columns else pd.Series(dtype=object)
+    # coluna de horario de inicio: triagem (aba Consultor) ou manutencao (demais)
+    col_inicio = "Iniciou Triagem" if "Iniciou Triagem" in d.columns else "Entrou na Manutenção"
+    entrou = d[col_inicio] if col_inicio in d.columns else pd.Series(dtype=object)
     iniciou = int(entrou.replace("", pd.NA).notna().sum())
 
     if "Status da Triagem" in d.columns:
@@ -50,7 +74,7 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
         k1.metric("Motos (placas)", total)
         k2.metric("Triagem finalizada", triagem_fin)
         k3.metric("% Triagem finalizada", pct)
-        k4.metric("Iniciou manutenção", iniciou)
+        k4.metric("Iniciou triagem", iniciou)
     else:
         finalizadas = int((sid == 4).sum())
         k1, k2, k3 = st.columns(3)
@@ -62,7 +86,7 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
     disp = d.drop(columns=[c for c in ("_sid", "veiculoId") if c in d.columns])
 
     # horarios vazios -> travessao
-    for col in ("Entrou na Manutenção", "Finalizada"):
+    for col in ("Entrou na Manutenção", "Finalizada", "Iniciou Triagem", "Finalizou Triagem"):
         if col in disp.columns:
             disp[col] = disp[col].replace("", "—").fillna("—")
 

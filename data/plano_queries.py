@@ -155,6 +155,11 @@ WITH lista_transferencia AS (
 ),
 frota AS (
   SELECT DISTINCT placa, lugar_nome AS filial FROM `exp_frota.frota_atual`
+),
+justificativa AS (
+  SELECT placa, justificativa
+  FROM `dm-mottu-aluguel.exp_frota.justificativa_producao`
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY placa ORDER BY data_criacao DESC) = 1
 )
 SELECT
   t.placa,
@@ -166,9 +171,11 @@ SELECT
     ELSE 'No Prazo'
   END AS status_prazo,
   t.prazo_fim_transferencia,
+  COALESCE(j.justificativa, 'Não justificou') AS justificativa,
   t.veiculoId
 FROM lista_transferencia t
 LEFT JOIN frota f ON t.placa = f.placa
+LEFT JOIN justificativa j ON t.placa = j.placa
 ORDER BY t.prazo_fim_transferencia
 """
 

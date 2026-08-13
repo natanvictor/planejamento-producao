@@ -83,8 +83,10 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
     if not ev:
         return {}
     ultimo = ev[-1]
-    entrada = None      # primeira vez que iniciou manutencao (situacaoId==2) NO DIA
-    finalizada = None   # ultima finalizacao (situacaoId==4) NO DIA
+    entrada = None            # primeira vez que iniciou manutencao (situacaoId==2) NO DIA
+    finalizada = None         # ultima finalizacao (situacaoId==4) NO DIA
+    entrada_triagem = None    # inicio da triagem NO DIA (evento "Iniciada Triagem" ou situacaoId==6)
+    finalizada_triagem = None # fim da triagem NO DIA (evento "Finalizada Triagem")
     rampa = None
     for e in ev:
         if e.get("deviceName"):
@@ -94,16 +96,24 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
             continue
         no_dia = ts[:10] == hoje
         sid = e.get("situacaoId")
+        desc = e.get("eventoTipoDescricao") or ""
         if no_dia and sid == 2 and entrada is None:
             entrada = ts
         if no_dia and sid == 4:
             finalizada = ts
+        # triagem (aba do Consultor): so o planejamento -> horarios da triagem
+        if no_dia and ("Iniciada Triagem" in desc or sid == 6) and entrada_triagem is None:
+            entrada_triagem = ts
+        if no_dia and "Finalizada Triagem" in desc:
+            finalizada_triagem = ts
     return {
         "situacao": ultimo.get("situacaoDescricao") or "",
         "situacao_id": ultimo.get("situacaoId"),
         "evento": ultimo.get("eventoTipoDescricao") or "",
         "entrada": _fmt(entrada),
         "finalizada": _fmt(finalizada),
+        "entrada_triagem": _fmt(entrada_triagem),
+        "finalizada_triagem": _fmt(finalizada_triagem),
         "rampa": rampa or "",
     }
 

@@ -46,6 +46,9 @@ def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
     df["Evento"] = df["veiculoId"].map(lambda v: get(v, "evento"))
     df["Entrou na Manutenção"] = df["veiculoId"].map(lambda v: get(v, "entrada"))
     df["Finalizada"] = df["veiculoId"].map(lambda v: get(v, "finalizada"))
+    # horarios da triagem (usados na aba 2 do Consultor)
+    df["_entrada_triagem"] = df["veiculoId"].map(lambda v: get(v, "entrada_triagem"))
+    df["_finalizada_triagem"] = df["veiculoId"].map(lambda v: get(v, "finalizada_triagem"))
     return df
 
 
@@ -77,9 +80,13 @@ with tab2:
         df = _com_manutencao(df)
         df["Status da Triagem"] = df["_sid"].map(
             lambda s: "Não realizado" if (pd.isna(s) or int(s) in (5, 6)) else "Triagem realizada")
+        # aba 2 e so o planejamento (triagem) -> horarios sao os da TRIAGEM
+        df["Iniciou Triagem"] = df["_entrada_triagem"]
+        df["Finalizou Triagem"] = df["_finalizada_triagem"]
     render_aba(_ordenar(df, [
         "Placa", "Filial", "Modelo", "Categoria", "SLA", "Status da Triagem",
-        "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba2")
+        "Situação da Manutenção", "Iniciou Triagem", "Finalizou Triagem",
+        "_sid", "veiculoId"]), key="aba2")
 
 with tab3:
     with st.spinner("Carregando anomalias Conquiste + estado real-time…"):
@@ -96,10 +103,16 @@ with tab4:
     with st.spinner("Carregando transferência fim do plano + estado real-time…"):
         df = _carregar_bq("aba4").rename(columns={
             "placa": "Placa", "filial": "Filial", "status_prazo": "Status do Prazo",
-            "Evento": "Evento Manutenção"})
+            "justificativa": "Justificativa", "Evento": "Evento Manutenção"})
         _venc = pd.to_datetime(df["prazo_fim_transferencia"], errors="coerce")
         df["Data de Vencimento"] = _venc.dt.strftime("%d/%m/%Y").fillna("—")
+        # DATE_DIFF(prazo_fim_transferencia, hoje) -> dias ate o vencimento
+        _hoje = pd.Timestamp.now(tz="America/Sao_Paulo").normalize().tz_localize(None)
+        _dias = (_venc.dt.normalize() - _hoje).dt.days
+        df["Dias até o Vencimento"] = _dias.apply(lambda x: "—" if pd.isna(x) else str(int(x)))
         df = _com_manutencao(df).rename(columns={"Evento": "Evento Manutenção"})
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção", "Data de Vencimento",
-        "Status do Prazo", "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba4")
+        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção",
+        "Data de Vencimento", "Dias até o Vencimento", "Status do Prazo",
+        "Justificativa", "Entrou na Manutenção", "Finalizada",
+        "_sid", "veiculoId"]), key="aba4")
