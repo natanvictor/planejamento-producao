@@ -19,12 +19,15 @@ Motivo: a tabela BQ `man_operacao.manutencao_eventos` é **snapshot diário** (`
 
 ```
 planejamento-producao/
-├── app.py                         # 4 abas, cache, merge BQ+API, coloração
+├── app.py                         # 4 abas, cache, merge BQ+API, coloração + rampas ao vivo na aba 1
 ├── data/
 │   ├── plano_queries.py           # 4 queries BQ (quais motos + veiculoId + placa) + get_ultimo_mid_por_placa (fallback finalizadas)
-│   └── realtime_manutencao.py     # enriquecimento de manutenção via API em tempo real (+ fallback BQ p/ finalizadas)
+│   ├── realtime_manutencao.py     # enriquecimento de manutenção via API em tempo real (+ fallback BQ p/ finalizadas; deriva horários de triagem)
+│   └── rampas_ativas.py           # rampas ativas por filial ao vivo (API /Ativas, Situacoes=2); lugar_id via filiais.json (api_codigo)
 ├── components/
-│   └── aba_tabela.py              # renderizador: filtros (filial+placa) + tabela colorida
+│   ├── aba_tabela.py              # renderizador: filtros (filial+placa+situação, justificativa por checkbox) + tabela colorida
+│   └── rampas_filial.py           # HTML da faixa "rampas ativas por filial" p/ st.components.v1.html
+├── filiais.json                   # nome→{bq_filial, api_codigo}; api_codigo = lugar_id da API de manutenção
 └── .streamlit/secrets.toml        # credenciais (não versionado)
 ```
 
@@ -65,19 +68,23 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 
 | # | Aba | Motos (BQ) | Colunas |
 |---|-----|-----------|---------|
-| 1 | **Planejamento de Produção** | `exp_frota.ordem_de_producao_historico` WHERE `dia_ordem = current_date` | Placa, Filial, Categoria¹, Situação, Entrou, Finalizada |
-| 2 | **Planejamento do Consultor** | `exp_frota.ordem_producao_consultor` WHERE `data_ref = current_date` | Placa, Filial, Modelo, Categoria, SLA², Status da Triagem³, Entrou, Finalizada |
+| 1 | **Planejamento de Produção** | `exp_frota.ordem_de_producao_historico` WHERE `dia_ordem = current_date` | Placa, Filial, Categoria¹, Situação, Entrou, Finalizada — **+ faixa "Rampas ativas por filial" abaixo da tabela** (ver seção própria) |
+| 2 | **Planejamento do Consultor** | `exp_frota.ordem_producao_consultor` WHERE `data_ref = current_date` | Placa, Filial, Modelo, Categoria, SLA², Status da Triagem³, Situação, **Iniciou Triagem**, **Finalizou Triagem**⁶ |
 | 3 | **Anomalias de Conquiste** | query unificada (interna+cliente) `diasSituacao > 13`, **todas as filiais** | Placa, Filial, Dias na Situação, Evento, Situação, Entrou, Finalizada, Justificativa, Justificada? |
-| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, **Data de Vencimento**⁵, Status do Prazo⁴, Entrou, Finalizada |
+| 4 | **Anomalias de Titular Fim do Plano** | `flt_regulatorio.minha_mottu_transferencia` (em transferência, situação 1500) | Placa, Filial, Evento Manutenção, Situação, **Data de Vencimento**⁵, **Dias até o Vencimento**⁷, Status do Prazo⁴, **Justificativa**⁸, Entrou, Finalizada |
 
 ¹ Aba 1 **não tem coluna "categoria"** na tabela → usa `origem` (Complementares, Suprir Agendamento, Conquiste, Limpeza…).
 ² SLA = `sla_estourado` → "Estourado" / "No prazo".
 ³ Status da Triagem: situação real-time em ("Aguardando Triagem","Em Triagem") ou sem manutenção → **Não realizado**; senão **Triagem realizada**.
 ⁴ Status do Prazo: `DATE_DIFF(prazo, hoje)` → Passou do Prazo / Dia de Transferencia / Atenção Proximo do Prazo / No Prazo.
 ⁵ Data de Vencimento: `prazo_fim_transferencia` (data-limite da transferência), formatada `dd/mm/aaaa`. Vazio → "—".
+⁶ Aba 2 é **só o planejamento (triagem)** → os horários mostram **início/fim da TRIAGEM**, não da manutenção. Derivados em `realtime_manutencao._derivar`: `entrada_triagem` = 1º evento "Iniciada Triagem" (ou `situacaoId==6`) no dia; `finalizada_triagem` = último "Finalizada Triagem" no dia. KPI da aba 2 = "Iniciou triagem". Só eventos **do dia** (mesmo design de Entrou/Finalizada).
+⁷ Dias até o Vencimento: `DATE_DIFF(prazo_fim_transferencia, hoje)` calculado no **Streamlit** (fuso `America/Sao_Paulo`); negativo = vencido; sem data → "—".
+⁸ Aba 4 ganhou `LEFT JOIN exp_frota.justificativa_producao` (mesma da aba 3); COALESCE → "Não justificou".
 
 ### Filtros, cartões e coloração (`components/aba_tabela.py`)
-- Filtros **na tela principal** (não sidebar): **Filial** + **Placa**, `st.multiselect` (busca por digitação + seleção múltipla).
+- Filtros **na tela principal** (não sidebar): **Filial** + **Placa** + **Situação da Manutenção** (todas as abas), `st.multiselect` (busca por digitação + seleção múltipla).
+- **Filtro de justificativa por checkbox** (abas 3 e 4, quando existe coluna `Justificativa`): `st.expander` com uma checkbox por justificativa distinta — **marcada = mantém** a linha. Escolhe quais justificativas tirar/ficar.
 - **Cartões (KPIs) no topo**, `st.metric`, refletem o **filtro atual**: **Motos (placas)** = `Placa.nunique()`; **Finalizadas** = `_sid == 4`; **Iniciou manutenção** = `Entrou na Manutenção` preenchido (≠ vazio).
   - **Aba 2 (Consultor)** substitui "Finalizadas" por **Triagem finalizada** (`Status da Triagem == "Triagem realizada"`) e adiciona **% Triagem finalizada** (triagem finalizada / total de placas). Detecção pela presença da coluna `Status da Triagem`.
 - **Cores da Situação por `situacaoId`** (numérico, robusto):
@@ -87,6 +94,24 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 - Também colore: Status da Triagem (verde/vermelho), Justificada? (verde/vermelho), Status do Prazo.
 
 > ⚠️ A API chama `situacaoId=2` de **"Manutenção"** (não "Em Manutenção") e `6` de **"Triagem"**. Por isso a cor é por **ID numérico**, não pelo texto.
+
+---
+
+## Rampas ativas por filial (aba 1, abaixo da tabela)
+
+Faixa horizontal de células, **uma linha por filial**, **uma célula por rampa ativa** (cada rampa = 1 moto), colorida pela categoria da moto. Renderizada via `st.components.v1.html` com o HTML de `components/rampas_filial.py`.
+
+> **Princípio:** BQ (plano do dia da aba 1) diz **quais placas são do plano**; a API ao vivo diz **quais rampas estão ocupadas agora** e por qual moto/tipo.
+
+- **Dados ao vivo** (`data/rampas_ativas.py`): `GET /api/v2.6/Ativas/{lugar_id}/Ativas?Tipos=...&Situacoes=2` → manutenções em curso (situação 2). Campos usados: `plataforma` (= a **rampa**), `placa`, `tipo`, `ultimoMecanicoNome`. Descarta plataformas de **alinhamento/iot**. `lugar_id` vem de `filiais.json` (`bq_filial` → `api_codigo`). Token/sessão reaproveitados de `realtime_manutencao`. Paralelo (24 workers), cache 5 min.
+- **Classificação da categoria** (em `app.py`, cruzando com as placas do plano da aba 1):
+  - `tipo ∈ {1,2,5,7,10,11,12,13}` → **cliente** 🔵 (`#3632a8`)
+  - interna (`tipo ∈ {3,4,6,9,15}`) e placa **no plano de hoje** → **planejamento** 🟢 (`#28a745`)
+  - interna e placa **fora do plano** → **nao_planejamento** 🔴 (`#dc3545`)
+  - comparação de placa é **normalizada** (remove hífen/símbolos, upper) p/ evitar gotcha placa com/sem hífen.
+  - **Leitura de decisão:** vermelho = rampa sendo gasta **fora do plano** (mecânico burlando a fila).
+- **Sob demanda (gate por botão):** só busca a API ao clicar **"🔧 Carregar rampas ativas"** (`st.session_state["mostrar_rampas"]`). Motivo: a aba 1 é Brasil inteiro → seria ~1 chamada por filial do plano (100+) a cada janela de cache, e `st.tabs` roda as 4 abas a cada rerun. **Follow-up em aberto:** avaliar se vira automático, se filtra por filial, e/ou incluir mecânico no tooltip.
+- `render_rampas_por_filial(df[filial,rampa,moto_id,categoria])` → HTML autocontido; legenda no topo-direito; nome da filial com largura fixa; faixa com `overflow-x:auto`; tooltip por célula (rampa/moto/categoria); cores em `CORES_CATEGORIA` (dict configurável no topo). Altura via `altura_componente(n) = 60 + n*60`.
 
 ---
 
@@ -113,6 +138,7 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 |--------|-----|
 | `_carregar_bq(aba)` | 5 min (por aba) |
 | `_enriquecer(vid_placa_items)` | 5 min (por tupla de `(veiculoId, placa)`) |
+| `_carregar_rampas(filiais)` | 5 min (por tupla de filiais do plano; aba 1, sob demanda) |
 
 Trocar filtro **não** re-chama a API (opera sobre o cache). Só o 1º load de cada janela de 5 min é lento.
 

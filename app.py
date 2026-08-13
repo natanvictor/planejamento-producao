@@ -1,9 +1,14 @@
+import re
+
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 
 from data import plano_queries as q
+from data import rampas_ativas as ra
 from data.realtime_manutencao import enriquecer
 from components.aba_tabela import render_aba
+from components.rampas_filial import render_rampas_por_filial, altura_componente
 
 st.set_page_config(page_title="Gestão do Plano de Produção e Anomalias", layout="wide")
 st.title("Gestão do Plano de Produção e Anomalias")
@@ -23,6 +28,15 @@ def _carregar_bq(aba: str) -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def _enriquecer(vid_placa_items: tuple) -> dict:
     return enriquecer(dict(vid_placa_items))
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _carregar_rampas(filiais: tuple) -> pd.DataFrame:
+    return ra.buscar_rampas_ativas(filiais)
+
+
+def _norm_placa(s: object) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", str(s)).upper()
 
 
 def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
@@ -71,6 +85,36 @@ with tab1:
     render_aba(_ordenar(df, [
         "Placa", "Filial", "Categoria", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
+
+    # --- Rampas ativas por filial (ao vivo, sob demanda) ---
+    st.divider()
+    st.markdown("#### Rampas ativas por filial")
+    st.caption("Ao vivo (API). 🟢 interna do plano · 🔴 interna fora do plano · 🔵 cliente.")
+    # Gate por botao: a API de rampas so e chamada quando o usuario pede
+    # (evita ~1 chamada por filial do plano no load padrao da aba 1).
+    if st.button("🔧 Carregar rampas ativas", key="btn_rampas"):
+        st.session_state["mostrar_rampas"] = True
+    if st.session_state.get("mostrar_rampas"):
+        with st.spinner("Carregando rampas ativas…"):
+            filiais_plano = tuple(sorted(df["Filial"].dropna().astype(str).unique()))
+            placas_plano = {_norm_placa(p) for p in df["Placa"].dropna()}
+            rampas_df = _carregar_rampas(filiais_plano)
+        if rampas_df.empty:
+            st.caption("Nenhuma rampa ativa encontrada para as filiais do plano.")
+        else:
+            rampas_df = rampas_df.copy()
+
+            def _categoria(tipo: object, placa: object) -> str:
+                if pd.notna(tipo) and int(tipo) in ra.TIPOS_CLIENTE:
+                    return "cliente"
+                return "planejamento" if _norm_placa(placa) in placas_plano else "nao_planejamento"
+
+            rampas_df["categoria"] = [
+                _categoria(t, p) for t, p in zip(rampas_df["tipo"], rampas_df["moto_id"])]
+            components.html(
+                render_rampas_por_filial(rampas_df),
+                height=altura_componente(int(rampas_df["filial"].nunique())),
+                scrolling=False)
 
 with tab2:
     with st.spinner("Carregando plano do consultor + estado real-time…"):
