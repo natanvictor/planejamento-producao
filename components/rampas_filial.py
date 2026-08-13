@@ -102,26 +102,35 @@ def render_rampas_por_filial(
 
     css = f"""
     <style>
-      .rf-wrap {{ font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#111; padding:2px; }}
-      .rf-legenda {{ display:flex; gap:18px; justify-content:flex-end; align-items:center;
-                     margin:0 2px 12px 2px; font-size:13px; }}
+      /* fundo TRANSPARENTE (herda o app). O iframe do components.html nao herda o
+         tema, entao a cor do texto adapta via prefers-color-scheme p/ nao sumir. */
+      .rf-wrap {{ font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                  background:transparent; color:#1a1a1a; padding:2px; box-sizing:border-box; }}
+      .rf-legenda {{ display:flex; flex-wrap:wrap; gap:18px; justify-content:flex-end;
+                     align-items:center; margin:0 0 14px 0; font-size:13px; color:inherit; }}
       .rf-lg-item {{ display:inline-flex; align-items:center; gap:6px; }}
       .rf-lg-quad {{ width:14px; height:14px; border-radius:3px; display:inline-block;
-                     box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); }}
+                     box-shadow:inset 0 0 0 1px rgba(128,128,128,.4); }}
       .rf-linha {{ display:flex; align-items:center; margin-bottom:8px; }}
       .rf-nome {{ width:{largura_nome_px}px; min-width:{largura_nome_px}px; box-sizing:border-box;
-                  font-weight:600; font-size:14px; padding-right:10px;
+                  font-weight:600; font-size:14px; color:inherit; padding-right:12px;
                   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
-      .rf-faixa {{ display:flex; gap:4px; flex:1; overflow-x:auto; padding-bottom:6px; }}
+      .rf-faixa {{ display:flex; gap:6px; flex:1; overflow-x:auto; padding-bottom:6px; }}
       .rf-celula {{ min-width:{largura_celula_px}px; height:34px; flex:0 0 auto;
-                    display:flex; align-items:center; justify-content:center;
-                    border-radius:4px; color:#fff; font-size:12px; font-weight:700;
-                    cursor:default; box-shadow:inset 0 0 0 1px rgba(0,0,0,.10); }}
+                    box-sizing:border-box; padding:0 12px;
+                    display:flex; align-items:center; justify-content:center; text-align:center;
+                    border-radius:4px; color:#fff; font-size:12px; font-weight:500;
+                    white-space:nowrap; cursor:default;
+                    box-shadow:inset 0 0 0 1px rgba(0,0,0,.10); }}
       .rf-celula:hover {{ filter:brightness(1.08); transform:translateY(-1px);
                           transition:transform .1s ease, filter .1s ease; }}
-      .rf-vazio {{ color:#999; font-size:12px; font-style:italic; }}
+      .rf-vazio {{ color:#888; font-size:12px; font-style:italic; }}
       .rf-faixa::-webkit-scrollbar {{ height:7px; }}
-      .rf-faixa::-webkit-scrollbar-thumb {{ background:#cfcfcf; border-radius:4px; }}
+      .rf-faixa::-webkit-scrollbar-thumb {{ background:rgba(128,128,128,.5); border-radius:4px; }}
+      /* tema escuro: clareia texto (filial + legenda) p/ nao sumir no fundo escuro */
+      @media (prefers-color-scheme: dark) {{
+        .rf-wrap {{ color:#e8e8e8; }}
+      }}
     </style>
     """
 
