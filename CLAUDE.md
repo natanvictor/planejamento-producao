@@ -110,7 +110,7 @@ Faixa horizontal de células, **uma linha por filial**, **uma célula por rampa 
   - interna e placa **fora do plano** → **nao_planejamento** 🔴 (`#dc3545`)
   - comparação de placa é **normalizada** (remove hífen/símbolos, upper) p/ evitar gotcha placa com/sem hífen.
   - **Leitura de decisão:** vermelho = rampa sendo gasta **fora do plano** (mecânico burlando a fila).
-- **Sob demanda (gate por botão):** só busca a API ao clicar **"🔧 Carregar rampas ativas"** (`st.session_state["mostrar_rampas"]`). Motivo: a aba 1 é Brasil inteiro → seria ~1 chamada por filial do plano (100+) a cada janela de cache, e `st.tabs` roda as 4 abas a cada rerun. **Follow-up em aberto:** avaliar se vira automático, se filtra por filial, e/ou incluir mecânico no tooltip.
+- **Responde aos filtros da tabela da aba 1** (sem botão): lê as seleções do `render_aba` via `st.session_state["aba1_f"]` (Filial) e `["aba1_p"]` (Placa). Filtrar por **Filial** também **reduz a busca** (só chama a API das filiais selecionadas); **Placa** filtra as rampas por `moto_id`. Situação não se aplica (toda rampa está em `Situacoes=2`). Sem filtro de filial → busca todas as filiais do plano (Brasil inteiro, ~1 chamada/filial), mitigado pelo cache de 5 min. **Follow-up em aberto:** incluir mecânico no tooltip.
 - `render_rampas_por_filial(df[filial,rampa,moto_id,categoria])` → HTML autocontido; legenda no topo-direito; nome da filial com largura fixa; faixa com `overflow-x:auto`; tooltip por célula (rampa/moto/categoria); cores em `CORES_CATEGORIA` (dict configurável no topo). Altura via `altura_componente(n) = 60 + n*60`.
 
 ---
@@ -141,6 +141,8 @@ Faixa horizontal de células, **uma linha por filial**, **uma célula por rampa 
 | `_carregar_rampas(filiais)` | 5 min (por tupla de filiais do plano; aba 1, sob demanda) |
 
 Trocar filtro **não** re-chama a API (opera sobre o cache). Só o 1º load de cada janela de 5 min é lento.
+
+**Sem auto-refresh:** o app não tem timer (não é hora em hora). Atualiza ao recarregar/interagir; dados no máximo ~5 min defasados. Um `st.info` no topo mostra "Última atualização" via `_hora_atualizacao(bucket)` (cache 300s → reflete a frescura real do cache de dados).
 
 ## Rodar localmente
 
