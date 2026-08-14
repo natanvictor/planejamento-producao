@@ -191,3 +191,115 @@ def categoria_da_moto(tipo: int, placa: str, placas_do_plano: set[str]) -> str:
     if tipo in TIPOS_CLIENTE:
         return "cliente"
     return "planejamento" if placa in placas_do_plano else "nao_planejamento"
+
+
+# =====================================================================
+# Layout coluna-por-rampa (rampa atual + mecânico + histórico do dia)
+# =====================================================================
+_LARGURA_COL = 180  # px por rampa (padrão; topo e histórico alinhados)
+
+_FIN_OK = '<span title="Finalizada: true" style="color:#3fa34d;">&#10003;</span>'
+_FIN_NO = '<span title="Finalizada: false (em andamento)" style="color:#e08a3c;">&#10007;</span>'
+
+
+def _cor(categoria: str) -> str:
+    return CORES_CATEGORIA.get(categoria, _COR_PADRAO)
+
+
+def render_rampas_colunas(paineis: dict, categoria_fn) -> str:
+    """HTML do painel coluna-por-rampa (uma coluna por rampa ativa).
+
+    Parametros
+    ----------
+    paineis:
+        `{filial: [coluna, ...]}` de `data.rampas_historico.montar_paineis`. Cada coluna:
+        ``{rampa, placa, tipo, mecanico, nivel, historico:[{hora, placa, tipo, nivel, finalizada}]}``.
+    categoria_fn:
+        `f(tipo, placa) -> "planejamento"|"nao_planejamento"|"cliente"` (cruza com o plano do dia).
+
+    Retorna HTML autocontido p/ `st.components.v1.html(...)`. Fundo transparente; cor do
+    texto adapta ao tema (prefers-color-scheme). Legenda inclui categorias + finalizada (✓/✗).
+    """
+    w = _LARGURA_COL
+    css = f"""
+    <style>
+      .rc-wrap {{ font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                  background:transparent; color:#1a1a1a; padding:2px; box-sizing:border-box; }}
+      .rc-legenda {{ display:flex; flex-wrap:wrap; gap:16px; justify-content:flex-end;
+                     align-items:center; margin:0 0 14px 0; font-size:13px; color:inherit; }}
+      .rc-lg-item {{ display:inline-flex; align-items:center; gap:6px; }}
+      .rc-lg-quad {{ width:14px; height:14px; border-radius:3px; display:inline-block;
+                     box-shadow:inset 0 0 0 1px rgba(128,128,128,.4); }}
+      .rc-filial {{ display:flex; align-items:flex-start; margin-bottom:22px; }}
+      .rc-nome {{ width:170px; min-width:170px; font-weight:700; font-size:15px;
+                  color:inherit; padding-top:8px; }}
+      .rc-cols {{ flex:1; display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; }}
+      .rc-col {{ width:{w}px; min-width:{w}px; display:flex; flex-direction:column; gap:6px; }}
+      .rc-cur {{ width:{w}px; min-width:{w}px; box-sizing:border-box; height:36px; padding:0 8px;
+                 display:flex; align-items:center; justify-content:center; border-radius:5px;
+                 color:#fff; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                 box-shadow:inset 0 0 0 1px rgba(0,0,0,.1); }}
+      .rc-mec {{ font-size:12px; font-weight:600; color:inherit; white-space:nowrap;
+                 overflow:hidden; text-overflow:ellipsis; }}
+      .rc-hist {{ display:flex; flex-direction:column; gap:1px; }}
+      .rc-linha {{ display:flex; align-items:center; gap:4px; font-size:10.5px; color:inherit; padding:1px 0; }}
+      .rc-hora {{ color:#8a8f94; min-width:32px; }}
+      .rc-placa {{ font-family:monospace; min-width:56px; }}
+      .rc-sq {{ width:12px; height:12px; border-radius:3px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); }}
+      .rc-nivel {{ color:#8a8f94; white-space:nowrap; flex:1; overflow:hidden; text-overflow:ellipsis; }}
+      .rc-vazio {{ font-size:10.5px; color:#8a8f94; font-style:italic; }}
+      .rc-cols::-webkit-scrollbar {{ height:7px; }}
+      .rc-cols::-webkit-scrollbar-thumb {{ background:rgba(128,128,128,.5); border-radius:4px; }}
+      @media (prefers-color-scheme: dark) {{ .rc-wrap {{ color:#e8e8e8; }} }}
+    </style>
+    """
+
+    legenda = "".join(
+        f'<span class="rc-lg-item"><span class="rc-lg-quad" style="background:{CORES_CATEGORIA[k]}"></span>'
+        f'{html.escape(ROTULO_CATEGORIA[k])}</span>'
+        for k in ("planejamento", "nao_planejamento", "cliente")
+    )
+    legenda += (f'<span class="rc-lg-item">{_FIN_OK} finalizada (true)</span>'
+                f'<span class="rc-lg-item">{_FIN_NO} em andamento (false)</span>')
+
+    blocos: list[str] = []
+    for filial in sorted(paineis, key=lambda s: str(s).lower()):
+        cols_html: list[str] = []
+        for c in paineis[filial]:
+            cat = categoria_fn(c.get("tipo"), c.get("placa"))
+            rampa = html.escape(str(c.get("rampa", "—")))
+            tip = html.escape(f"Rampa {c.get('rampa')} | {c.get('placa')} | "
+                              f"{ROTULO_CATEGORIA.get(cat, cat)} | {c.get('nivel')} | Mec: {c.get('mecanico')}")
+            cur = (f'<div class="rc-cur" style="background:{_cor(cat)}" title="{tip}">{rampa}</div>')
+            mec = f'<div class="rc-mec">&#128295; {html.escape(str(c.get("mecanico", "—")))}</div>'
+
+            linhas: list[str] = []
+            for h in c.get("historico", []):
+                hcat = categoria_fn(h.get("tipo"), h.get("placa"))
+                fin = _FIN_OK if h.get("finalizada") else _FIN_NO
+                linhas.append(
+                    f'<div class="rc-linha">'
+                    f'<span class="rc-hora">{html.escape(str(h.get("hora", "")))}</span>'
+                    f'<span class="rc-placa">{html.escape(str(h.get("placa", "—")))}</span>'
+                    f'<span class="rc-sq" style="background:{_cor(hcat)}"></span>'
+                    f'<span class="rc-nivel">{html.escape(str(h.get("nivel", "—")))}</span>'
+                    f'{fin}</div>')
+            hist = "".join(linhas) or '<span class="rc-vazio">sem histórico hoje</span>'
+            cols_html.append(f'<div class="rc-col">{cur}{mec}<div class="rc-hist">{hist}</div></div>')
+
+        blocos.append(
+            f'<div class="rc-filial"><div class="rc-nome">{html.escape(str(filial))}</div>'
+            f'<div class="rc-cols">{"".join(cols_html)}</div></div>')
+
+    return f'{css}<div class="rc-wrap"><div class="rc-legenda">{legenda}</div>{"".join(blocos)}</div>'
+
+
+def altura_paineis(paineis: dict) -> int:
+    """Altura (px) do componente coluna-por-rampa: legenda + por filial, o bloco mais
+    alto (topo+mecânico + N linhas de histórico)."""
+    total = 50  # legenda/margem
+    for cols in paineis.values():
+        max_linhas = max((len(c.get("historico", [])) for c in cols), default=0)
+        # ~64px (célula+mecânico) + 16px/linha de histórico + folga
+        total += 64 + max_linhas * 16 + 28
+    return total

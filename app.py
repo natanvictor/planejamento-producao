@@ -8,9 +8,10 @@ import pandas as pd
 
 from data import plano_queries as q
 from data import rampas_ativas as ra
+from data import rampas_historico as rh
 from data.realtime_manutencao import enriquecer
 from components.aba_tabela import render_aba
-from components.rampas_filial import render_rampas_por_filial, altura_componente
+from components.rampas_filial import render_rampas_colunas, altura_paineis
 
 st.set_page_config(page_title="Gestão do Plano de Produção e Anomalias", layout="wide")
 st.title("Gestão do Plano de Produção e Anomalias")
@@ -47,8 +48,8 @@ def _enriquecer(vid_placa_items: tuple) -> dict:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _carregar_rampas(filiais: tuple) -> pd.DataFrame:
-    return ra.buscar_rampas_ativas(filiais)
+def _carregar_paineis(filiais: tuple) -> dict:
+    return rh.montar_paineis(filiais)
 
 
 def _norm_placa(s: object) -> str:
@@ -102,44 +103,41 @@ with tab1:
         "Placa", "Filial", "Categoria", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
 
-    # --- Rampas ativas por filial (ao vivo) ---
-    # Responde aos MESMOS filtros da tabela acima (Filial/Placa da aba 1), lidos do
-    # session_state das keys do render_aba. Filtrar por filial tambem reduz a busca
-    # (so chama a API das filiais selecionadas).
+    # --- Rampas ativas por filial (ao vivo): coluna por rampa + histórico do dia ---
+    # Responde aos MESMOS filtros da tabela acima (Filial), lido do session_state da
+    # key do render_aba. Filtrar por filial reduz a busca (so essas filiais).
     st.divider()
     st.markdown("#### Rampas ativas por filial")
-    st.caption("Ao vivo (API). 🟢 interna do plano · 🔴 interna fora do plano · 🔵 cliente.")
+    st.caption("Ao vivo (API). Coluna = 1 rampa. Topo = rampa atual + mecânico; abaixo = "
+               "placas do dia [hora · placa · cor · nível · ✓/✗]. 🟢 plano · 🔴 fora do plano · 🔵 cliente.")
 
     sel_filial = st.session_state.get("aba1_f", [])
-    sel_placa = st.session_state.get("aba1_p", [])
-
     filiais_plano = [f for f in sorted(df["Filial"].dropna().astype(str).unique())
                      if not sel_filial or f in sel_filial]
     placas_plano = {_norm_placa(p) for p in df["Placa"].dropna()}
 
-    with st.spinner("Carregando rampas ativas…"):
-        rampas_df = _carregar_rampas(tuple(filiais_plano))
+    # O histórico faz muitas chamadas (eventos por manutenção). Sem filtro de filial,
+    # limita p/ nao varrer o Brasil inteiro; peça p/ filtrar por filial p/ ver todas.
+    _CAP = 6
+    if not sel_filial and len(filiais_plano) > _CAP:
+        st.caption(f"⚠️ Mostrando as {_CAP} primeiras de {len(filiais_plano)} filiais. "
+                   "Filtre por **Filial** acima para ver as demais (e carregar mais rápido).")
+        filiais_plano = filiais_plano[:_CAP]
 
-    if not rampas_df.empty and sel_placa:
-        alvo = {_norm_placa(p) for p in sel_placa}
-        rampas_df = rampas_df[rampas_df["moto_id"].map(lambda m: _norm_placa(m) in alvo)]
+    with st.spinner("Carregando rampas + histórico do dia…"):
+        paineis = _carregar_paineis(tuple(filiais_plano))
 
-    if rampas_df.empty:
+    def _categoria(tipo: object, placa: object) -> str:
+        if tipo is not None and int(tipo) in ra.TIPOS_CLIENTE:
+            return "cliente"
+        return "planejamento" if _norm_placa(placa) in placas_plano else "nao_planejamento"
+
+    if not paineis:
         st.caption("Nenhuma rampa ativa para o filtro atual.")
     else:
-        rampas_df = rampas_df.copy()
-
-        def _categoria(tipo: object, placa: object) -> str:
-            if pd.notna(tipo) and int(tipo) in ra.TIPOS_CLIENTE:
-                return "cliente"
-            return "planejamento" if _norm_placa(placa) in placas_plano else "nao_planejamento"
-
-        rampas_df["categoria"] = [
-            _categoria(t, p) for t, p in zip(rampas_df["tipo"], rampas_df["moto_id"])]
         components.html(
-            render_rampas_por_filial(rampas_df),
-            height=altura_componente(int(rampas_df["filial"].nunique())),
-            scrolling=False)
+            render_rampas_colunas(paineis, _categoria),
+            height=altura_paineis(paineis), scrolling=True)
 
 with tab2:
     with st.spinner("Carregando plano do consultor + estado real-time…"):

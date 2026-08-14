@@ -97,21 +97,28 @@ gcp_project_id = "dm-mottu-aluguel"   # BigQuery (ADC local)
 
 ---
 
-## Rampas ativas por filial (aba 1, abaixo da tabela)
+## Rampas ativas por filial (aba 1, abaixo da tabela) — coluna por rampa + histórico do dia
 
-Faixa horizontal de células, **uma linha por filial**, **uma célula por rampa ativa** (cada rampa = 1 moto), colorida pela categoria da moto. Renderizada via `st.components.v1.html` com o HTML de `components/rampas_filial.py`.
+Layout **coluna-por-rampa** (uma coluna por rampa ativa, largura padrão 180px, topo e histórico alinhados). Cada coluna:
+- **topo:** célula da rampa atual (nome da rampa, cor = categoria da moto agora);
+- **🔧 mecânico** logado na rampa (`ultimoMecanicoNome`);
+- **histórico do dia do mecânico**: placas que ele trabalhou hoje, em ordem cronológica, uma linha por moto: **`hora início` · `placa` · `▪ cor` · `nível (fila)` · `✓/✗ finalizada`**.
 
-> **Princípio:** BQ (plano do dia da aba 1) diz **quais placas são do plano**; a API ao vivo diz **quais rampas estão ocupadas agora** e por qual moto/tipo.
+Renderizado por `render_rampas_colunas(paineis, categoria_fn)` em `components/rampas_filial.py` via `st.components.v1.html`. Fundo transparente; texto adapta ao tema (`prefers-color-scheme`); legenda inclui categorias + **✓ finalizada (true) / ✗ em andamento (false)**. Altura via `altura_paineis(paineis)`.
 
-- **Dados ao vivo** (`data/rampas_ativas.py`): `GET /api/v2.6/Ativas/{lugar_id}/Ativas?Tipos=...&Situacoes=2` → manutenções em curso (situação 2). Campos usados: `plataforma` (= a **rampa**), `placa`, `tipo`, `ultimoMecanicoNome`. Descarta plataformas de **alinhamento/iot**. `lugar_id` vem de `filiais.json` (`bq_filial` → `api_codigo`). Token/sessão reaproveitados de `realtime_manutencao`. Paralelo (24 workers), cache 5 min.
-- **Classificação da categoria** (em `app.py`, cruzando com as placas do plano da aba 1):
-  - `tipo ∈ {1,2,5,7,10,11,12,13}` → **cliente** 🔵 (`#3632a8`)
-  - interna (`tipo ∈ {3,4,6,9,15}`) e placa **no plano de hoje** → **planejamento** 🟢 (`#28a745`)
-  - interna e placa **fora do plano** → **nao_planejamento** 🔴 (`#dc3545`)
-  - comparação de placa é **normalizada** (remove hífen/símbolos, upper) p/ evitar gotcha placa com/sem hífen.
-  - **Leitura de decisão:** vermelho = rampa sendo gasta **fora do plano** (mecânico burlando a fila).
-- **Responde aos filtros da tabela da aba 1** (sem botão): lê as seleções do `render_aba` via `st.session_state["aba1_f"]` (Filial) e `["aba1_p"]` (Placa). Filtrar por **Filial** também **reduz a busca** (só chama a API das filiais selecionadas); **Placa** filtra as rampas por `moto_id`. Situação não se aplica (toda rampa está em `Situacoes=2`). Sem filtro de filial → busca todas as filiais do plano (Brasil inteiro, ~1 chamada/filial), mitigado pelo cache de 5 min. **Follow-up em aberto:** incluir mecânico no tooltip.
-- `render_rampas_por_filial(df[filial,rampa,moto_id,categoria])` → HTML autocontido; legenda no topo-direito; nome da filial com largura fixa; faixa com `overflow-x:auto`; tooltip por célula (rampa/moto/categoria); cores em `CORES_CATEGORIA` (dict configurável no topo). Altura via `altura_componente(n) = 60 + n*60`.
+> **Princípio:** BQ (plano do dia da aba 1) diz **quais placas são do plano** (→ cor); a API ao vivo diz **rampas ocupadas agora**, mecânico, e o que cada mecânico fez hoje.
+
+- **Dados ao vivo** (`data/rampas_historico.py` → `montar_paineis(filiais_bq)`), **concorrência global em 3 fases**:
+  1. `GET /api/v2.6/Ativas/{lugar}/Ativas?...&Situacoes=2` → rampas + `plataforma`(rampa)/`placa`/`tipo`/`ultimoMecanicoNome`/`descricaoFila`(nível). Descarta alinhamento/iot.
+  2. `GET /api/v2.6/Manutencao/HistoricoPorMecanico?mecanicoId=..` por mecânico → manutenções recentes; **dedup por id** e **pré-filtro `atualizacaoData` = hoje** (corta a maioria das chamadas).
+  3. `GET /api/v2/Manutencao/Detalhes/Eventos/{id}` só das manutenções tocadas hoje → **hora de início** (1º evento `situacaoId==2` no dia).
+  - **`finalizada`** sai **direto do histórico** (`situacao==4`), sem custo de evento. **`nível`** = `filaDescricao`, com fallback por `filaId` (`_NIVEL_POR_FILA_ID`: 18=Nível 1, 29=Nível 2+, 20=Nível 3, 28=Nível 3+, 21=Nível 4, 31=Box Rápido, 1=Revisão/Mec. Básica, 2=Alinhamento, 3=IoT).
+  - `lugar_id` de `filiais.json` (`bq_filial`→`api_codigo`). Token/sessão de `realtime_manutencao`. Cache 5 min (`_carregar_paineis`).
+  - **A "fila da manutenção" É o nível** (Nível 1–4). NÃO confundir com `classificacaoInicial` (Boa/Normal/Problemática = outro eixo).
+- **Categoria/cor** (`_categoria` em `app.py`): `tipo∈{1,2,5,7,10,11,12,13}`→cliente🔵; interna(`{3,4,6,9,15}`) no plano→planejamento🟢; fora do plano→nao_planejamento🔴. Placa comparada **normalizada** (sem hífen). Leitura de decisão: 🔴 = rampa gasta **fora do plano**.
+- **Responde ao filtro de Filial** da tabela (via `st.session_state["aba1_f"]`). O histórico faz muitas chamadas de evento → **sem filtro de filial, capa em 6 filiais** (`_CAP`) e pede p/ filtrar (senão varreria o Brasil). Custo: ~12s p/ 1–3 filiais no 1º load da janela de cache (a concorrência global deixa a escala quase plana).
+- ⚠️ Gotcha: uma mesma placa pode aparecer sob 2 rampas se **2 mecânicos** a trabalharam hoje (handoff) — é real, não bug.
+- `render_rampas_por_filial` (faixa antiga de 1 linha/filial) segue no componente mas **não é mais usada** pela aba 1.
 
 ---
 
