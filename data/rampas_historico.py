@@ -74,22 +74,35 @@ def _historico_mecanico(sess: requests.Session, token: str, mec_id: int) -> list
     return list(vistos.values())
 
 
-def _inicio_hoje(sess: requests.Session, token: str, mid: int, hoje: str) -> str | None:
-    """hora HH:MM em que a manutenção iniciou HOJE = 1º evento situacaoId==2 no dia.
-    (finalizada NÃO vem daqui — sai do próprio histórico via situacao==4.)"""
+def _eventos_dia(sess: requests.Session, token: str, mid: int, hoje: str) -> dict:
+    """A partir da timeline, extrai do DIA: {inicio, fim, ultimo_evento}.
+    - inicio = 1º evento situacaoId==2 no dia (HH:MM) — marca que trabalhou hoje.
+    - fim = último evento situacaoId==4 no dia (HH:MM) ou None.
+    - ultimo_evento = descrição do último evento do dia (explica por que não finalizou)."""
+    vazio = {"inicio": None, "fim": None, "ultimo_evento": ""}
     try:
         r = sess.get(f"{_BASE_V2}Manutencao/Detalhes/Eventos/{mid}", headers=_headers(token), timeout=25)
         if r.status_code != 200:
-            return None
+            return vazio
         ev = r.json().get("dataResult", []) or []
     except (requests.RequestException, ValueError):
-        return None
+        return vazio
     ev = sorted(ev, key=lambda e: e.get("criacaoData") or "")
+    inicio = fim = None
+    ultimo_evento = ""
     for e in ev:
         ts = e.get("criacaoData")
-        if ts and ts[:10] == hoje and e.get("situacaoId") == 2:
-            return ts[11:16]
-    return None
+        if not ts or ts[:10] != hoje:
+            continue
+        sid = e.get("situacaoId")
+        if sid == 2 and inicio is None:
+            inicio = ts
+        if sid == 4:
+            fim = ts
+        ultimo_evento = e.get("eventoTipoDescricao") or ultimo_evento
+    return {"inicio": inicio[11:16] if inicio else None,
+            "fim": fim[11:16] if fim else None,
+            "ultimo_evento": ultimo_evento}
 
 
 def _map_paralelo(func, chaves, *args, workers: int = _EV_WORKERS) -> dict:
@@ -146,10 +159,10 @@ def montar_paineis(filiais_bq: tuple[str, ...]) -> dict[str, list[dict]]:
     hist_por_mec = {mid: [x for x in (lst or []) if (x.get("atualizacaoData") or "")[:10] == hoje]
                     for mid, lst in hist_raw.items()}
 
-    # Fase 3 — início (eventos) só das manutenções tocadas hoje (global, paralelo)
+    # Fase 3 — eventos do dia (início/fim/último evento) das manutenções tocadas hoje
     ids = {int(x["id"]) for lst in hist_por_mec.values() for x in lst if x.get("id")}
-    inicio_por_id = _map_paralelo(lambda s, t, i: _inicio_hoje(s, t, i, hoje), ids, sess, token,
-                                  workers=32)
+    eventos_por_id = _map_paralelo(lambda s, t, i: _eventos_dia(s, t, i, hoje), ids, sess, token,
+                                   workers=32)
 
     # Fase 4 — montar colunas
     paineis: dict[str, list[dict]] = {}
@@ -157,17 +170,24 @@ def montar_paineis(filiais_bq: tuple[str, ...]) -> dict[str, list[dict]]:
         colunas: list[dict] = []
         for m in rs:
             mec_id = int(m["ultimoMecanicoId"]) if m.get("ultimoMecanicoId") else None
+            mid_atual = m.get("manutencaoId")  # manutenção que está NA rampa agora
             hist: list[dict] = []
             for x in hist_por_mec.get(mec_id, []):
-                inicio = inicio_por_id.get(int(x["id"]))
-                if not inicio:  # só o que ele iniciou hoje
+                mid = int(x["id"])
+                ev = eventos_por_id.get(mid) or {}
+                if not ev.get("inicio"):  # só o que ele iniciou hoje
                     continue
                 hist.append({
-                    "hora": inicio,
+                    "mid": mid,
+                    "hora": ev["inicio"],
+                    "fim": ev.get("fim"),
                     "placa": x.get("placa") or "—",
                     "tipo": x.get("tipo"),
                     "nivel": _nivel(x.get("filaDescricao"), x.get("filaId")),
+                    "situacao": x.get("situacaoDescricao") or "",
+                    "motivo": ev.get("ultimo_evento") or "",
                     "finalizada": x.get("situacao") == 4,  # direto do histórico
+                    "atual": mid_atual is not None and mid == int(mid_atual),
                 })
             hist.sort(key=lambda h: h["hora"])
             colunas.append({
@@ -177,6 +197,7 @@ def montar_paineis(filiais_bq: tuple[str, ...]) -> dict[str, list[dict]]:
                 "tipo": m.get("tipo"),
                 "mecanico": m.get("ultimoMecanicoNome") or "—",
                 "nivel": _nivel(m.get("descricaoFila"), m.get("filaId")),
+                "mid_atual": int(mid_atual) if mid_atual is not None else None,
                 "historico": hist,
             })
         if colunas:

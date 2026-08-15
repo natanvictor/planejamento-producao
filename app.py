@@ -97,10 +97,12 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     with st.spinner("Carregando plano + estado real-time…"):
         df = _carregar_bq("aba1").rename(columns={
-            "placa": "Placa", "filial": "Filial", "categoria": "Categoria"})
+            "placa": "Placa", "filial": "Filial", "categoria": "Categoria", "ordem": "Ordem"})
         df = _com_manutencao(df)
+        # Ordem (ordem_prioridade 1-7) ordena as categorias do plano
+        df = df.sort_values(["Ordem", "Categoria", "Placa"], kind="stable")
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Categoria", "Situação da Manutenção",
+        "Ordem", "Placa", "Filial", "Categoria", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
 
     # --- Rampas ativas por filial (ao vivo): coluna por rampa + histórico do dia ---
@@ -128,9 +130,14 @@ with tab1:
         paineis = _carregar_paineis(tuple(filiais_plano))
 
     def _categoria(tipo: object, placa: object) -> str:
+        # Plano PRIMEIRO: se está no plano do dia -> planejamento, seja qual for o tipo.
+        # (Conquiste/Suprir Agendamento têm tipoEnum na faixa "cliente" do maintenance-backend,
+        #  mas são categorias do plano interno — não podem cair em "cliente".)
+        if _norm_placa(placa) in placas_plano:
+            return "planejamento"
         if tipo is not None and int(tipo) in ra.TIPOS_CLIENTE:
             return "cliente"
-        return "planejamento" if _norm_placa(placa) in placas_plano else "nao_planejamento"
+        return "nao_planejamento"
 
     if not paineis:
         st.caption("Nenhuma rampa ativa para o filtro atual.")

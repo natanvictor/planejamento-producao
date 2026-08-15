@@ -182,15 +182,19 @@ def render_rampas_por_filial(
 def categoria_da_moto(tipo: int, placa: str, placas_do_plano: set[str]) -> str:
     """Deriva a `categoria` de uma moto em rampa (helper opcional/upstream).
 
-    - `tipo` de cliente  -> "cliente".
-    - `tipo` interna e placa no plano do dia -> "planejamento".
-    - `tipo` interna e placa fora do plano   -> "nao_planejamento".
+    Plano PRIMEIRO (Conquiste/Suprir Agendamento têm tipoEnum na faixa "cliente" do
+    maintenance-backend, mas são categorias do plano interno):
+    - placa no plano do dia            -> "planejamento".
+    - fora do plano e `tipo` de cliente -> "cliente".
+    - fora do plano e `tipo` interna    -> "nao_planejamento".
 
     `placas_do_plano` = conjunto de placas de `ordem_de_producao_historico` de hoje.
     """
+    if placa in placas_do_plano:
+        return "planejamento"
     if tipo in TIPOS_CLIENTE:
         return "cliente"
-    return "planejamento" if placa in placas_do_plano else "nao_planejamento"
+    return "nao_planejamento"
 
 
 # =====================================================================
@@ -198,8 +202,14 @@ def categoria_da_moto(tipo: int, placa: str, placas_do_plano: set[str]) -> str:
 # =====================================================================
 _LARGURA_COL = 180  # px por rampa (padrão; topo e histórico alinhados)
 
-_FIN_OK = '<span title="Finalizada: true" style="color:#3fa34d;">&#10003;</span>'
-_FIN_NO = '<span title="Finalizada: false (em andamento)" style="color:#e08a3c;">&#10007;</span>'
+_FIN_OK = '<span title="Finalizada" style="color:#3fa34d;">&#10003;</span>'
+_FIN_NO = '<span title="Subiu na rampa e não finalizou" style="color:#e05a4a;">&#10007;</span>'
+# moto verde = manutenção que está NA rampa agora (em andamento no momento)
+_ATUAL = ('<svg viewBox="0 0 24 24" width="14" height="14" fill="#3fa34d" style="vertical-align:middle;">'
+          '<title>Na rampa agora</title><path d="M19.44 9.03 15.41 5H11v2h3.59l2 2H5c-2.8 0-5 2.2-5 5s2.2 '
+          '5 5 5c2.46 0 4.45-1.69 4.9-4h1.65l2.77-2.77c-.21.54-.32 1.14-.32 1.77 0 2.8 2.2 5 5 5s5-2.2 '
+          '5-5c0-2.65-1.97-4.77-4.56-4.97zM7.82 15C7.4 16.15 6.28 17 5 17c-1.63 0-3-1.37-3-3s1.37-3 3-3c1.28 '
+          '0 2.4.85 2.82 2H5v2h2.82zM19 17c-1.63 0-3-1.37-3-3s1.37-3 3-3 3 1.37 3 3-1.37 3-3 3z"/></svg>')
 
 
 def _cor(categoria: str) -> str:
@@ -233,7 +243,9 @@ def render_rampas_colunas(paineis: dict, categoria_fn) -> str:
       .rc-filial {{ display:flex; align-items:flex-start; margin-bottom:22px; }}
       .rc-nome {{ width:170px; min-width:170px; font-weight:700; font-size:15px;
                   color:inherit; padding-top:8px; }}
-      .rc-cols {{ flex:1; display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; }}
+      /* quebra para a linha de baixo (continuação) em vez de scroll horizontal:
+         rampas escondidas viram fileiras abaixo, sem precisar deslizar. */
+      .rc-cols {{ flex:1; display:flex; flex-wrap:wrap; gap:16px; padding-bottom:8px; align-items:flex-start; }}
       .rc-col {{ width:{w}px; min-width:{w}px; display:flex; flex-direction:column; gap:6px; }}
       .rc-cur {{ width:{w}px; min-width:{w}px; box-sizing:border-box; height:36px; padding:0 8px;
                  display:flex; align-items:center; justify-content:center; border-radius:5px;
@@ -259,8 +271,9 @@ def render_rampas_colunas(paineis: dict, categoria_fn) -> str:
         f'{html.escape(ROTULO_CATEGORIA[k])}</span>'
         for k in ("planejamento", "nao_planejamento", "cliente")
     )
-    legenda += (f'<span class="rc-lg-item">{_FIN_OK} finalizada (true)</span>'
-                f'<span class="rc-lg-item">{_FIN_NO} em andamento (false)</span>')
+    legenda += (f'<span class="rc-lg-item">{_ATUAL} na rampa agora</span>'
+                f'<span class="rc-lg-item">{_FIN_OK} finalizada</span>'
+                f'<span class="rc-lg-item">{_FIN_NO} subiu e não finalizou</span>')
 
     blocos: list[str] = []
     for filial in sorted(paineis, key=lambda s: str(s).lower()):
@@ -276,14 +289,34 @@ def render_rampas_colunas(paineis: dict, categoria_fn) -> str:
             linhas: list[str] = []
             for h in c.get("historico", []):
                 hcat = categoria_fn(h.get("tipo"), h.get("placa"))
-                fin = _FIN_OK if h.get("finalizada") else _FIN_NO
+                if h.get("atual"):
+                    icone = _ATUAL
+                elif h.get("finalizada"):
+                    icone = _FIN_OK
+                else:
+                    icone = _FIN_NO
+                # tooltip "caixa": tudo o que aconteceu com a moto hoje
+                linhas_tip = [
+                    f"Placa: {h.get('placa', '—')}",
+                    f"Nível: {h.get('nivel', '—')}",
+                    f"Categoria: {ROTULO_CATEGORIA.get(hcat, hcat)}",
+                    f"Entrou: {h.get('hora', '—')}",
+                    f"Finalizou: {h.get('fim') or '—'}",
+                ]
+                if h.get("situacao"):
+                    linhas_tip.append(f"Situação: {h.get('situacao')}")
+                if not h.get("finalizada") and not h.get("atual") and h.get("motivo"):
+                    linhas_tip.append(f"Por que não finalizou: {h.get('motivo')}")
+                elif h.get("motivo"):
+                    linhas_tip.append(f"Último evento: {h.get('motivo')}")
+                tip = html.escape("\n".join(linhas_tip))
                 linhas.append(
-                    f'<div class="rc-linha">'
+                    f'<div class="rc-linha" title="{tip}">'
                     f'<span class="rc-hora">{html.escape(str(h.get("hora", "")))}</span>'
                     f'<span class="rc-placa">{html.escape(str(h.get("placa", "—")))}</span>'
                     f'<span class="rc-sq" style="background:{_cor(hcat)}"></span>'
                     f'<span class="rc-nivel">{html.escape(str(h.get("nivel", "—")))}</span>'
-                    f'{fin}</div>')
+                    f'{icone}</div>')
             hist = "".join(linhas) or '<span class="rc-vazio">sem histórico hoje</span>'
             cols_html.append(f'<div class="rc-col">{cur}{mec}<div class="rc-hist">{hist}</div></div>')
 
@@ -294,12 +327,14 @@ def render_rampas_colunas(paineis: dict, categoria_fn) -> str:
     return f'{css}<div class="rc-wrap"><div class="rc-legenda">{legenda}</div>{"".join(blocos)}</div>'
 
 
-def altura_paineis(paineis: dict) -> int:
-    """Altura (px) do componente coluna-por-rampa: legenda + por filial, o bloco mais
-    alto (topo+mecânico + N linhas de histórico)."""
-    total = 50  # legenda/margem
+def altura_paineis(paineis: dict, cols_por_linha: int = 6) -> int:
+    """Altura (px) do componente coluna-por-rampa, considerando a QUEBRA das colunas
+    em várias fileiras (flex-wrap). Estima ~`cols_por_linha` colunas por fileira."""
+    total = 60  # legenda/margem
     for cols in paineis.values():
+        n = len(cols)
         max_linhas = max((len(c.get("historico", [])) for c in cols), default=0)
-        # ~64px (célula+mecânico) + 16px/linha de histórico + folga
-        total += 64 + max_linhas * 16 + 28
+        altura_coluna = 70 + max_linhas * 16          # célula+mecânico + linhas de histórico
+        fileiras = max(1, -(-n // max(1, cols_por_linha)))  # ceil(n / cols_por_linha)
+        total += 24 + fileiras * (altura_coluna + 16)
     return total

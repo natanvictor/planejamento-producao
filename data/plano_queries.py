@@ -38,7 +38,7 @@ def _run(sql: str) -> pd.DataFrame:
 # ABA 1 - Planejamento de Producao
 # =====================================================================
 _Q_ABA1 = """
-SELECT placa, filial, TRIM(origem) AS categoria, veiculoId
+SELECT placa, filial, TRIM(origem) AS categoria, ordem_prioridade AS ordem, veiculoId
 FROM `dm-mottu-aluguel.exp_frota.ordem_de_producao_historico`
 WHERE dia_ordem = CURRENT_DATE('America/Sao_Paulo')
 QUALIFY ROW_NUMBER() OVER (PARTITION BY placa ORDER BY ordem_prioridade) = 1
