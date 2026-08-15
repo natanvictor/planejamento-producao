@@ -99,8 +99,12 @@ with tab1:
         df = _carregar_bq("aba1").rename(columns={
             "placa": "Placa", "filial": "Filial", "categoria": "Categoria", "ordem": "Ordem"})
         df = _com_manutencao(df)
-        # Ordem (ordem_prioridade 1-7) ordena as categorias do plano
-        df = df.sort_values(["Ordem", "Categoria", "Placa"], kind="stable")
+        # Ordem (ordem_prioridade 1-7) ordena as categorias do plano.
+        # Defensivo: st.cache_data pode servir um df antigo (sem "Ordem") logo após
+        # deploy, pois o cache não vê mudança em plano_queries -> ordena só o que existe.
+        _sort = [c for c in ["Ordem", "Categoria", "Placa"] if c in df.columns]
+        if _sort:
+            df = df.sort_values(_sort, kind="stable")
     render_aba(_ordenar(df, [
         "Ordem", "Placa", "Filial", "Categoria", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
