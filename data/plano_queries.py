@@ -1,9 +1,12 @@
 """Queries BigQuery — definem QUAIS motos e atributos NAO-manutencao + veiculoId.
 O estado de manutencao (situacao, evento, horarios) vem da API em tempo real
 (ver data/realtime_manutencao.py)."""
+import time
+
 import streamlit as st
 import pandas as pd
 from google.cloud import bigquery
+from google.api_core import exceptions as gcp_exceptions
 from google.oauth2 import credentials as oauth2_credentials
 from google.oauth2 import service_account
 
@@ -30,8 +33,22 @@ def _get_client() -> bigquery.Client:
     return bigquery.Client(project=project)
 
 
-def _run(sql: str) -> pd.DataFrame:
-    return _get_client().query(sql).to_dataframe()
+def _run(sql: str, job_config=None) -> pd.DataFrame:
+    """Executa a query via endpoint SÍNCRONO `jobs.query` (query_and_wait) em vez de
+    `jobs.insert`. Motivo: `jobs.create` nega intermitentemente (403 Forbidden) em
+    dm-mottu-aluguel; o caminho jobs.query evita esse gargalo. Retry leve p/ o caso
+    intermitente. Fallback para .query() em versões antigas do cliente."""
+    client = _get_client()
+    ultimo_erro: Exception | None = None
+    for tentativa in range(3):
+        try:
+            if hasattr(client, "query_and_wait"):
+                return client.query_and_wait(sql, job_config=job_config).to_dataframe()
+            return client.query(sql, job_config=job_config).to_dataframe()
+        except gcp_exceptions.Forbidden as e:
+            ultimo_erro = e
+            time.sleep(1.5 * (tentativa + 1))
+    raise ultimo_erro
 
 
 # =====================================================================
@@ -202,6 +219,6 @@ def get_ultimo_mid_por_placa(placas: tuple) -> dict:
         return {}
     job_config = bigquery.QueryJobConfig(query_parameters=[
         bigquery.ArrayQueryParameter("placas", "STRING", list(placas))])
-    df = _get_client().query(_Q_ULT_MID, job_config=job_config).to_dataframe()
+    df = _run(_Q_ULT_MID, job_config=job_config)
     return {r.placa: int(r.manutencaoId)
             for r in df.itertuples() if pd.notna(r.manutencaoId)}

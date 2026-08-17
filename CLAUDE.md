@@ -154,6 +154,9 @@ Trocar filtro **não** re-chama a API (opera sobre o cache). Só o 1º load de c
 
 **Sem auto-refresh:** o app não tem timer (não é hora em hora). Atualiza ao recarregar/interagir; dados no máximo ~5 min defasados. Um `st.info` no topo mostra "Última atualização" via `_hora_atualizacao(bucket)` (cache 300s → reflete a frescura real do cache de dados).
 
+## BigQuery: `jobs.query` (não `jobs.insert`)
+`data/plano_queries._run` usa **`client.query_and_wait`** (endpoint síncrono `jobs.query`) em vez de `client.query` (`jobs.insert`), com retry leve. Motivo: `jobs.create` **nega intermitentemente (403 Forbidden)** em `dm-mottu-aluguel` (credencial `authorized_user` no Streamlit Cloud) — sintoma clássico: app cai em `google.api_core.exceptions.Forbidden` no `query()._begin()`. `jobs.query` evita o gargalo.
+
 ## Rodar localmente
 
 ```bash
