@@ -52,8 +52,33 @@ def _carregar_paineis(filiais: tuple) -> dict:
     return rh.montar_paineis(filiais)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _carregar_regionais() -> dict:
+    """{filial_normalizada: gerente_regional}. Tabela mensal (divisao_filiais) ->
+    TTL 1h. Filial sem regional (ex.: franquias/MX) -> 'Sem regional'."""
+    df = q.get_divisao_filiais()
+    return {_norm_filial(r.filial): (r.gerente_regional or "Sem regional")
+            for r in df.itertuples() if pd.notna(r.filial)}
+
+
 def _norm_placa(s: object) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", str(s)).upper()
+
+
+def _norm_filial(s: object) -> str:
+    """Normaliza nome de filial p/ casar com divisao_filiais (lower + espacos
+    colapsados), mesma logica de chave usada na tabela de origem."""
+    return re.sub(r"\s+", " ", str(s).strip()).lower()
+
+
+def _com_regional(df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona a coluna 'Gerente Regional' mapeando pela Filial (nome normalizado)."""
+    df = df.copy()
+    if "Filial" in df.columns:
+        mapa = _carregar_regionais()
+        df["Gerente Regional"] = df["Filial"].map(
+            lambda f: mapa.get(_norm_filial(f), "Sem regional"))
+    return df
 
 
 def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
@@ -99,6 +124,7 @@ with tab1:
         df = _carregar_bq("aba1").rename(columns={
             "placa": "Placa", "filial": "Filial", "categoria": "Categoria", "ordem": "Ordem"})
         df = _com_manutencao(df)
+        df = _com_regional(df)
         # Ordem (ordem_prioridade 1-7) ordena as categorias do plano.
         # Defensivo: st.cache_data pode servir um df antigo (sem "Ordem") logo após
         # deploy, pois o cache não vê mudança em plano_queries -> ordena só o que existe.
@@ -106,7 +132,7 @@ with tab1:
         if _sort:
             df = df.sort_values(_sort, kind="stable")
     render_aba(_ordenar(df, [
-        "Ordem", "Placa", "Filial", "Categoria", "Situação da Manutenção",
+        "Ordem", "Placa", "Filial", "Gerente Regional", "Categoria", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
 
     # --- Rampas ativas por filial (ao vivo): coluna por rampa + histórico do dia ---
@@ -156,13 +182,14 @@ with tab2:
             "placa": "Placa", "filial": "Filial", "modelo": "Modelo",
             "categoria": "Categoria", "sla": "SLA"})
         df = _com_manutencao(df)
+        df = _com_regional(df)
         df["Status da Triagem"] = df["_sid"].map(
             lambda s: "Não realizado" if (pd.isna(s) or int(s) in (5, 6)) else "Triagem realizada")
         # aba 2 e so o planejamento (triagem) -> horarios sao os da TRIAGEM
         df["Iniciou Triagem"] = df["_entrada_triagem"]
         df["Finalizou Triagem"] = df["_finalizada_triagem"]
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Modelo", "Categoria", "SLA", "Status da Triagem",
+        "Placa", "Filial", "Gerente Regional", "Modelo", "Categoria", "SLA", "Status da Triagem",
         "Situação da Manutenção", "Iniciou Triagem", "Finalizou Triagem",
         "_sid", "veiculoId"]), key="aba2")
 
@@ -172,8 +199,9 @@ with tab3:
             "placa": "Placa", "filial": "Filial", "diasSituacao": "Dias na Situação",
             "categoria": "Categoria", "justificativa": "Justificativa", "justificada": "Justificada?"})
         df = _com_manutencao(df)
+        df = _com_regional(df)
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Dias na Situação", "Evento", "Situação da Manutenção",
+        "Placa", "Filial", "Gerente Regional", "Dias na Situação", "Evento", "Situação da Manutenção",
         "Entrou na Manutenção", "Finalizada", "Justificativa", "Justificada?",
         "_sid", "veiculoId"]), key="aba3")
 
@@ -189,8 +217,9 @@ with tab4:
         _dias = (_venc.dt.normalize() - _hoje).dt.days
         df["Dias até o Vencimento"] = _dias.apply(lambda x: "—" if pd.isna(x) else str(int(x)))
         df = _com_manutencao(df).rename(columns={"Evento": "Evento Manutenção"})
+        df = _com_regional(df)
     render_aba(_ordenar(df, [
-        "Placa", "Filial", "Evento Manutenção", "Situação da Manutenção",
+        "Placa", "Filial", "Gerente Regional", "Evento Manutenção", "Situação da Manutenção",
         "Data de Vencimento", "Dias até o Vencimento", "Status do Prazo",
         "Justificativa", "Entrou na Manutenção", "Finalizada",
         "_sid", "veiculoId"]), key="aba4")

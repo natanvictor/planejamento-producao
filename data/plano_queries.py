@@ -202,6 +202,31 @@ def get_aba4_transferencia() -> pd.DataFrame:
 
 
 # =====================================================================
+# Divisao das filiais (Gerente Regional / City Manager) - mapa filial->regional
+# =====================================================================
+# Tabela mensal: uma linha por filial por mes. Pegamos o MES MAIS RECENTE por
+# filial (chave normalizada lower+trim, igual a `divisao_filiais` faz no historico).
+_Q_DIVISAO = """
+WITH latest AS (
+  SELECT
+    filial, gerente_regional, cm_nome,
+    ROW_NUMBER() OVER (PARTITION BY LOWER(TRIM(filial)) ORDER BY data_valor DESC) AS rn
+  FROM `dm-mottu-aluguel.exp_frota.divisao_filiais`
+)
+SELECT filial, gerente_regional, cm_nome
+FROM latest
+WHERE rn = 1
+"""
+
+
+def get_divisao_filiais() -> pd.DataFrame:
+    """{filial, gerente_regional, cm_nome} do mes mais recente por filial.
+    Usado para o filtro de Gerente Regional nas 4 abas (join por nome de filial
+    normalizado no app)."""
+    return _run(_Q_DIVISAO)
+
+
+# =====================================================================
 # Fallback de manutencao FINALIZADA (info-by-vehicle-ids so devolve aberta)
 # =====================================================================
 _Q_ULT_MID = """

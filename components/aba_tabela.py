@@ -22,14 +22,27 @@ def _bg(cor: str) -> str:
 def render_aba(df: pd.DataFrame, key: str) -> None:
     """Filtros (filial + placa + situacao, multiselect com busca) na tela + tabela colorida.
     Nas abas com coluna 'Justificativa', um bloco de checkboxes escolhe quais manter."""
-    c1, c2, c3 = st.columns(3)
-    with c1:
+    tem_regional = "Gerente Regional" in df.columns
+    # Regional (quando existe) vira o 1o filtro -> 4 colunas; senao 3.
+    cols = st.columns(4 if tem_regional else 3)
+    ci = 0
+    if tem_regional:
+        with cols[ci]:
+            regionais = sorted(df["Gerente Regional"].dropna().unique().tolist())
+            sel_r = st.multiselect("Gerente Regional", regionais, key=f"{key}_r",
+                                   placeholder="Todos os regionais")
+        ci += 1
+    else:
+        sel_r = []
+    with cols[ci]:
         filiais = sorted(df["Filial"].dropna().unique().tolist())
         sel_f = st.multiselect("Filial", filiais, key=f"{key}_f", placeholder="Todas as filiais")
-    with c2:
+        ci += 1
+    with cols[ci]:
         placas = sorted(df["Placa"].dropna().unique().tolist())
         sel_p = st.multiselect("Placa", placas, key=f"{key}_p", placeholder="Todas as placas")
-    with c3:
+        ci += 1
+    with cols[ci]:
         if "Situação da Manutenção" in df.columns:
             sits = sorted(s for s in df["Situação da Manutenção"].dropna().unique().tolist() if s)
             sel_s = st.multiselect("Situação da Manutenção", sits, key=f"{key}_s",
@@ -38,6 +51,8 @@ def render_aba(df: pd.DataFrame, key: str) -> None:
             sel_s = []
 
     d = df
+    if sel_r:
+        d = d[d["Gerente Regional"].isin(sel_r)]
     if sel_f:
         d = d[d["Filial"].isin(sel_f)]
     if sel_p:
