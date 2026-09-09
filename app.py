@@ -136,25 +136,35 @@ with tab1:
         "Entrou na Manutenção", "Finalizada", "_sid", "veiculoId"]), key="aba1")
 
     # --- Rampas ativas por filial (ao vivo): coluna por rampa + histórico do dia ---
-    # Responde aos MESMOS filtros da tabela acima (Filial), lido do session_state da
-    # key do render_aba. Filtrar por filial reduz a busca (so essas filiais).
+    # Responde aos MESMOS filtros da tabela acima (Gerente Regional + Filial), lidos do
+    # session_state das keys do render_aba. Filtrar reduz a busca (so essas filiais).
     st.divider()
     st.markdown("#### Rampas ativas por filial")
     st.caption("Ao vivo (API). Coluna = 1 rampa. Topo = rampa atual + mecânico; abaixo = "
                "placas do dia [hora · placa · cor · nível · ✓/✗]. 🟢 plano · 🔴 fora do plano · 🔵 cliente.")
 
+    sel_regional = st.session_state.get("aba1_r", [])
     sel_filial = st.session_state.get("aba1_f", [])
-    filiais_plano = [f for f in sorted(df["Filial"].dropna().astype(str).unique())
-                     if not sel_filial or f in sel_filial]
+    # Aplica os mesmos filtros da tabela p/ decidir QUAIS filiais mostrar as rampas.
+    _base = df
+    if sel_regional and "Gerente Regional" in _base.columns:
+        _base = _base[_base["Gerente Regional"].isin(sel_regional)]
+    if sel_filial:
+        _base = _base[_base["Filial"].isin(sel_filial)]
+    filiais_plano = sorted(_base["Filial"].dropna().astype(str).unique())
     placas_plano = {_norm_placa(p) for p in df["Placa"].dropna()}
 
-    # O histórico faz muitas chamadas (eventos por manutenção). Sem filtro de filial,
-    # limita p/ nao varrer o Brasil inteiro; peça p/ filtrar por filial p/ ver todas.
+    # O histórico faz muitas chamadas (eventos por manutenção). SEM nenhum filtro,
+    # limita p/ nao varrer o Brasil inteiro. Com Regional ou Filial selecionada,
+    # mostra TODAS as filiais do filtro (a regional traz todas as suas filiais).
     _CAP = 6
-    if not sel_filial and len(filiais_plano) > _CAP:
+    if not sel_regional and not sel_filial and len(filiais_plano) > _CAP:
         st.caption(f"⚠️ Mostrando as {_CAP} primeiras de {len(filiais_plano)} filiais. "
-                   "Filtre por **Filial** acima para ver as demais (e carregar mais rápido).")
+                   "Filtre por **Gerente Regional** ou **Filial** acima para ver as demais.")
         filiais_plano = filiais_plano[:_CAP]
+    elif sel_regional:
+        st.caption(f"Mostrando **{len(filiais_plano)} filiais** da regional selecionada "
+                   "(rampas ao vivo — pode levar alguns segundos).")
 
     with st.spinner("Carregando rampas + histórico do dia…"):
         paineis = _carregar_paineis(tuple(filiais_plano))
