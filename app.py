@@ -12,6 +12,7 @@ from data import rampas_historico as rh
 from data.realtime_manutencao import enriquecer
 from components.aba_tabela import render_aba
 from components.rampas_filial import render_rampas_colunas, altura_paineis
+from components.anomalia_geral import render_aba5
 
 st.set_page_config(page_title="Gestão do Plano de Produção e Anomalias", layout="wide")
 st.title("Gestão do Plano de Produção e Anomalias")
@@ -61,6 +62,14 @@ def _carregar_regionais() -> dict:
             for r in df.itertuples() if pd.notna(r.filial)}
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _carregar_cms() -> dict:
+    """{filial_normalizada: city_manager} da mesma tabela divisao_filiais."""
+    df = q.get_divisao_filiais()
+    return {_norm_filial(r.filial): (r.cm_nome or "—")
+            for r in df.itertuples() if pd.notna(r.filial)}
+
+
 def _norm_placa(s: object) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", str(s)).upper()
 
@@ -105,6 +114,8 @@ def _com_manutencao(df: pd.DataFrame) -> pd.DataFrame:
     # horarios da triagem (usados na aba 2 do Consultor)
     df["_entrada_triagem"] = df["veiculoId"].map(lambda v: get(v, "entrada_triagem"))
     df["_finalizada_triagem"] = df["veiculoId"].map(lambda v: get(v, "finalizada_triagem"))
+    # orcamento enviado (usado na aba 5 para "Conquiste sem orcamento")
+    df["_orcamento_enviado"] = df["veiculoId"].map(lambda v: bool(get(v, "orcamento_enviado")))
     return df
 
 
@@ -112,11 +123,12 @@ def _ordenar(df: pd.DataFrame, colunas: list) -> pd.DataFrame:
     return df[[c for c in colunas if c in df.columns]]
 
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "1 · Planejamento de Produção",
     "2 · Planejamento do Consultor",
     "3 · Anomalias de Conquiste",
     "4 · Anomalias de Titular Fim do Plano",
+    "5 · Anomalia Geral (Desvio de Capacidade)",
 ])
 
 with tab1:
@@ -233,3 +245,141 @@ with tab4:
         "Data de Vencimento", "Dias até o Vencimento", "Status do Prazo",
         "Justificativa", "Entrou na Manutenção", "Finalizada",
         "_sid", "veiculoId"]), key="aba4")
+
+
+def _classificar_rampa(tipo: object, placa: object, placas_plano: set) -> str:
+    """Mesma regra da aba 1: no plano -> planejamento; senão tipo cliente -> cliente;
+    o resto -> nao_planejamento (moto fora do plano = desvio de capacidade)."""
+    if _norm_placa(placa) in placas_plano:
+        return "planejamento"
+    if tipo is not None and int(tipo) in ra.TIPOS_CLIENTE:
+        return "cliente"
+    return "nao_planejamento"
+
+
+def _backlog_titular(df4: pd.DataFrame) -> dict:
+    """{filial: [ {placa, prazo, urg, st, _ord} ]} do titular fim do plano (não finalizado)."""
+    if df4.empty:
+        return {}
+    _venc = pd.to_datetime(df4["prazo_fim_transferencia"], errors="coerce")
+    _hoje = pd.Timestamp.now(tz="America/Sao_Paulo").normalize().tz_localize(None)
+    df4 = df4.copy()
+    df4["_dias"] = (_venc.dt.normalize() - _hoje).dt.days
+    out: dict = {}
+    for row in df4.to_dict("records"):
+        if row.get("_sid") == 4:  # já finalizada -> não é backlog
+            continue
+        d = row.get("_dias")
+        if pd.isna(d):
+            prazo, urg, ordv = "sem prazo", "mut", 9999
+        else:
+            d = int(d)
+            ordv = d
+            if d < 0:
+                prazo, urg = f"vencido {d}d", "red"
+            elif d == 0:
+                prazo, urg = "vence hoje", "red"
+            elif d == 1:
+                prazo, urg = "vence amanhã", "red"
+            elif d <= 7:
+                prazo, urg = f"vence em {d}d", "amber"
+            else:
+                prazo, urg = f"vence em {d}d", "mut"
+        out.setdefault(row["Filial"], []).append({
+            "placa": row["Placa"], "prazo": prazo, "urg": urg,
+            "st": row.get("Situação da Manutenção") or "—", "_ord": ordv})
+    for lst in out.values():
+        lst.sort(key=lambda m: m["_ord"])
+    return out
+
+
+def _backlog_conquiste(df3: pd.DataFrame) -> dict:
+    """{filial: [ {placa, prazo, urg, st, _ord} ]} de Conquiste >13d SEM orçamento (não finalizado)."""
+    if df3.empty:
+        return {}
+    out: dict = {}
+    for row in df3.to_dict("records"):
+        if row.get("_orcamento_enviado", False):   # já tem orçamento -> fora do recorte
+            continue
+        if row.get("_sid") == 4:                    # já finalizada -> não é backlog
+            continue
+        d = row.get("_dias")
+        dias = int(d) if pd.notna(d) else 0
+        out.setdefault(row["Filial"], []).append({
+            "placa": row["Placa"], "prazo": f"{dias} dias",
+            "urg": "red" if dias >= 30 else "amber",
+            "st": row.get("Situação da Manutenção") or "—", "_ord": dias})
+    for lst in out.values():
+        lst.sort(key=lambda m: -m["_ord"])
+    return out
+
+
+with tab5:
+    st.markdown("#### Anomalia Geral — Desvio de Capacidade")
+    st.caption("Filiais com **titular fim do plano** E **Conquiste >13d sem orçamento enviado** "
+               "que estão com **moto não planejada na rampa agora**. Bata o olho e ligue para o CM.")
+
+    with st.spinner("Cruzando backlog crítico (titular + Conquiste s/ orçamento)…"):
+        placas_plano = {_norm_placa(p) for p in _carregar_bq("aba1")["placa"].dropna()}
+
+        df3 = _carregar_bq("aba3").rename(columns={"placa": "Placa", "filial": "Filial"})
+        df3 = _com_manutencao(df3).rename(columns={"diasSituacao": "_dias"})
+        conq = _backlog_conquiste(df3)
+
+        df4 = _carregar_bq("aba4").rename(columns={"placa": "Placa", "filial": "Filial"})
+        df4 = _com_manutencao(df4)
+        titu = _backlog_titular(df4)
+
+        reg_map, cm_map = _carregar_regionais(), _carregar_cms()
+        filiais_both = sorted(set(conq) & set(titu))
+
+    if not filiais_both:
+        st.success("Nenhuma filial acumula titular fim do plano E Conquiste >13d sem orçamento agora. 🎉")
+        st.stop()
+
+    # filtros (opções = só as filiais do recorte); reduzem o custo das rampas ao vivo
+    regionais_opt = sorted({reg_map.get(_norm_filial(f), "Sem regional") for f in filiais_both})
+    fc1, fc2, fc3 = st.columns([2, 2, 1.2])
+    sel_reg = fc1.multiselect("Gerente Regional", regionais_opt, key="aba5_r")
+    _pool = [f for f in filiais_both
+             if not sel_reg or reg_map.get(_norm_filial(f), "Sem regional") in sel_reg]
+    sel_fil = fc2.multiselect("Filial", _pool, key="aba5_f")
+    mostrar_ok = fc3.toggle("Mostrar sem desvio", value=False, key="aba5_ok",
+                            help="Filiais com backlog mas rampa no plano")
+    alvos = [f for f in _pool if not sel_fil or f in sel_fil]
+
+    with st.spinner(f"Lendo rampas ao vivo de {len(alvos)} filial(is)…"):
+        paineis = _carregar_paineis(tuple(alvos))
+
+    acionar, ok = [], []
+    for f in alvos:
+        cols = paineis.get(f, [])
+        fora = []
+        for c in cols:
+            if _classificar_rampa(c.get("tipo"), c.get("placa"), placas_plano) != "nao_planejamento":
+                continue
+            hora = next((h.get("hora") for h in c.get("historico", []) if h.get("atual")), "")
+            fora.append({"placa": c.get("placa") or "—", "rampa": c.get("rampa") or "—",
+                         "mec": c.get("mecanico") or "—", "nivel": c.get("nivel") or "—",
+                         "hora": hora or ""})
+        t_all, q_all = titu.get(f, []), conq.get(f, [])
+        backlog_n = len(t_all) + len(q_all)
+        base = {"filial": f, "regional": reg_map.get(_norm_filial(f), "Sem regional"),
+                "cm": cm_map.get(_norm_filial(f), "—")}
+        if fora:
+            t_show, q_show = t_all[:4], q_all[:4]
+            acionar.append({**base, "fora": sorted(fora, key=lambda m: m["hora"]),
+                            "titular": t_show, "conquiste": q_show,
+                            "extra": (len(t_all) - len(t_show)) + (len(q_all) - len(q_show)),
+                            "_n": len(fora), "_bl": backlog_n})
+        else:
+            ok.append({**base, "rampas": len(cols), "backlog": backlog_n})
+
+    acionar.sort(key=lambda x: (-x["_n"], -x["_bl"]))
+    dados = {
+        "kpis": {"acionar": len(acionar),
+                 "nao_plan": sum(x["_n"] for x in acionar),
+                 "backlog": sum(len(titu.get(f, [])) + len(conq.get(f, [])) for f in alvos),
+                 "so_backlog": len(ok)},
+        "acionar": acionar, "ok": ok}
+    render_aba5(dados, mostrar_ok)

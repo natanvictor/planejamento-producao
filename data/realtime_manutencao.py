@@ -87,6 +87,7 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
     finalizada = None         # ultima finalizacao (situacaoId==4) NO DIA
     entrada_triagem = None    # inicio da triagem NO DIA (evento "Iniciada Triagem" ou situacaoId==6)
     finalizada_triagem = None # fim da triagem NO DIA (evento "Finalizada Triagem")
+    orcamento_enviado = False  # houve "Orçamento Enviado" (tipo 32) NESTA manutencao (qualquer dia)
     rampa = None
     for e in ev:
         if e.get("deviceName"):
@@ -97,6 +98,9 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
         no_dia = ts[:10] == hoje
         sid = e.get("situacaoId")
         desc = e.get("eventoTipoDescricao") or ""
+        d = desc.lower()
+        if "enviado" in d and "amento" in d:  # "Orçamento Enviado" (independe do dia)
+            orcamento_enviado = True
         if no_dia and sid == 2 and entrada is None:
             entrada = ts
         if no_dia and sid == 4:
@@ -114,6 +118,7 @@ def _derivar(eventos: list[dict], hoje: str) -> dict:
         "finalizada": _fmt(finalizada),
         "entrada_triagem": _fmt(entrada_triagem),
         "finalizada_triagem": _fmt(finalizada_triagem),
+        "orcamento_enviado": orcamento_enviado,
         "rampa": rampa or "",
     }
 
